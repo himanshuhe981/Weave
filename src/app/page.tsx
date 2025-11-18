@@ -1,16 +1,15 @@
-import { cn } from "@/lib/utils"
+import prisma from "@/lib/db";
 
 
-const Page = () => {
 
-  const something=true;
+const Page = async () => {
+
+  const users = await prisma.user.findMany()
 
   return (
-    <div className={cn(
-      "text-red-300 font-bold",
-      something == true && "text-green-500"
-      )}>
- Hello World
+    <div className="min-h-screen min-w-screen flex items-center justify-center">
+      {JSON.stringify(users)}
+
     </div>
   )
 };
