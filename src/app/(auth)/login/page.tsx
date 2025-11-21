@@ -1,4 +1,4 @@
-import { LoginForm } from "@/features/auth/componenets/login-form";
+import { LoginForm } from "@/features/auth/components/login-form";
 import { requireAuth, requireUnauth } from "@/lib/auth-utils";
 
  const Page = async () => {
