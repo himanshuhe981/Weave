@@ -10,19 +10,19 @@ Sentry.init({
   integrations: [
     // Add the Vercel AI SDK integration to sentry.server.config.ts
     Sentry.vercelAIIntegration({
-      recordInputs: true,
-      recordOutputs: true,
+      recordInputs: false,
+      recordOutputs: false,
     }),
     Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
   ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
 
   // Enable logs to be sent to Sentry
-  enableLogs: true,
+  enableLogs: false,
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  sendDefaultPii: false,
 });
