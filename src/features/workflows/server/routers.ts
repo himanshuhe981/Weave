@@ -38,6 +38,81 @@ export const workflowsRouter = createTRPCRouter({
             })
         }),
 
+    update: protectedProcedure
+    .input(
+        z.object({
+            id: z.string(),
+             nodes: z.array(
+                z.object({
+                    id: z.string(),
+                    type: z.string().nullish(),
+                    position: z.object({ x: z.number(),y: z.number() }),
+                    data: z.record(z.string(), z.any()).optional(),
+                }),
+             ),
+             edges: z.array(
+                z.object({
+                    source: z.string(),
+                    target: z.string(),
+                    sourceHandle: z.string().nullish(),
+                    targetHandle: z.string().nullish(),
+                }),
+             ),
+            }),
+        )
+    .mutation(async({ctx, input }) => {
+
+        const {id, nodes , edges } = input;
+        
+        const workflow = await prisma.workflow.findUniqueOrThrow({
+            where: {id, userId: ctx.auth.user.id}
+        });
+
+        // Transaction to ensure copnsistency
+
+        return await prisma.$transaction(async (tx) => {
+            // Delete existing nodes and connections (cascade deletes connection)
+
+            await tx.node.deleteMany({
+                where: { workflowId: id},
+            });
+
+            // Create nodes
+            await tx.node.createMany({
+                data: nodes.map((node) => ({
+                    id: node.id,
+                    workflowId: id,
+                    name: node.type || "unknown",
+                    type: node.type as NodeType,
+                    position: node.position,
+                    data: node.data || {},
+                })),
+            });
+
+            await tx.connection.createMany({
+                data: edges.map((edge) => ({
+                    workflowId: id,
+                    fromNodeId: edge.source,
+                    toNodeId: edge.target,
+                    fromOutput: edge.sourceHandle || "main",
+                    toInput: edge.targetHandle || "main",
+                })),
+            });
+
+            // Update workflow's updateAt timestamp
+            await tx.workflow.update({
+                where: { id },
+                data: {updatedAt: new Date()}
+            });
+
+            return workflow;
+        },{
+            maxWait: 5000,
+            timeout: 20000 // to allow upto 20 seconds (fixes 7.7s prisma timeout crash)
+        });
+           
+    }),
+
     updateName: protectedProcedure
     .input(z.object({id: z.string(), name: z.string().min(1)}))
     .mutation(({ctx, input }) => {
