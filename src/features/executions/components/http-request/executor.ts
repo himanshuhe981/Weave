@@ -12,9 +12,9 @@ Handlebars.registerHelper("json", (context) => {
 });
 
 type HttpRequestData = {
-    variableName: string,
-    endpoint: string;
-    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+    variableName?: string,
+    endpoint?: string;
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     body?: string;
 };
 
@@ -34,6 +34,13 @@ async ({
     }),
    );
 
+
+    // const result = await step.run("http-request", async () => context);
+    
+
+    try{
+    const result = await step.run("http-request", async () => {
+        
     if (!data.endpoint) {
         
         await publish(
@@ -67,12 +74,6 @@ async ({
 
         throw new NonRetriableError("Method not configured");
     }
-
-    // const result = await step.run("http-request", async () => context);
-    
-
-    try{
-    const result = await step.run("http-request", async () => {
         const endpoint = Handlebars.compile(data.endpoint)(context);
         const method = data.method;
         const options: KyOptions = { method };
