@@ -1,8 +1,8 @@
 import {channel, topic } from "@inngest/realtime";
 
-export const HTTP_REQUEST_CHANNEL_NAME = "http-request-execution";
+export const OPENAI_CHANNEL_NAME = "openai-execution";
 
-export const httpRequestChannel = channel("gemini-execution")
+export const openAiChannel = channel(OPENAI_CHANNEL_NAME)
     .addTopic(
         topic("status").type<{
             nodeId: string;

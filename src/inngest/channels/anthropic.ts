@@ -1,8 +1,8 @@
 import {channel, topic } from "@inngest/realtime";
 
-export const HTTP_REQUEST_CHANNEL_NAME = "http-request-execution";
+export const ANTHROPIC_CHANNEL_NAME = "anthropic-execution";
 
-export const httpRequestChannel = channel("gemini-execution")
+export const anthropicChannel = channel(ANTHROPIC_CHANNEL_NAME)
     .addTopic(
         topic("status").type<{
             nodeId: string;
