@@ -11,6 +11,7 @@ import { OPENAI_CHANNEL_NAME } from "@/inngest/channels/openai";
 type OpenAiNodeData = {
     variableName?: string;
     // model?: any; -- other solution
+    credentialId?:string;
 
     // ---better approach maybe
     model?: typeof AVAILABLE_MODELS[number]; 

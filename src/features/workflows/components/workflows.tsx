@@ -48,7 +48,8 @@ export const WorkflowsHeader = ({ disabled }: {disabled?: boolean}) => {
     const {handleError,modal} = useUpgradeModal();
 
     const handleCreate = () => {
-        createWorkflow.mutate(undefined, {
+        createWorkflow.mutate(undefined,{
+        // createWorkflow.mutate({ name: "Untitled", type: "OPENAI", value: "Draft" }, {
             onSuccess: (data) => {
                 router.push(`/workflows/${data.id}`)
             },
@@ -121,6 +122,7 @@ export const WorkflowsEmpty = () => {
 
     const handleCreate = () => {
         createWorkflow.mutate(undefined,{
+        // createWorkflow.mutate({ name: "Untitled", type: "OPENAI", value: "Draft" }, {
             onError: (error) => {
                 handleError(error);
             },
