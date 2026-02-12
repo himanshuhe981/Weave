@@ -14,7 +14,7 @@ Handlebars.registerHelper("json", (context) => {
 });
 
 type GeminiData = {
-    variableName?: string,
+    variableName?: string;
     credentialId?:string;
     model?: string;
     systemPrompt?: string;
@@ -25,6 +25,7 @@ export const geminiExecutor: NodeExecutor<GeminiData> =
 async ({
     data,
     nodeId,
+    userId,
     context,
     step,
     publish,
@@ -80,11 +81,18 @@ async ({
     return prisma.credential.findUnique({
         where: {
             id: data.credentialId,
+            userId,
         }
     });
    });
 
     if (!credential) {
+         await publish(
+            geminiChannel().status({
+                nodeId,
+                status: "error",
+            }),
+        );
         throw new NonRetriableError("Gemini node: Credential not found");
     }
 
