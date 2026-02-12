@@ -15,7 +15,7 @@ Handlebars.registerHelper("json", (context) => {
 });
 
 type OpenAiData = {
-    variableName?: string,
+    variableName?: string;
     credentialId?:string;
     model?: string;
     systemPrompt?: string;
@@ -26,6 +26,7 @@ export const openAiExecutor: NodeExecutor<OpenAiData> =
 async ({
     data,
     nodeId,
+    userId,
     context,
     step,
     publish,
@@ -86,6 +87,12 @@ async ({
    });
 
     if (!credential) {
+         await publish(
+            openAiChannel().status({
+                nodeId,
+                status: "error",
+            }),
+        );
         throw new NonRetriableError("OpenAI node: Credential not found");
     }
 
