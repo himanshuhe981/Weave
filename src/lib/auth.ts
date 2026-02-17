@@ -6,6 +6,12 @@ import { polarClient } from "./polar";
 
 
 export const auth = betterAuth({
+
+    // / --- ADDED THIS SECTION TO FIX VERCEL 403 ERRORS ---
+    baseURL: process.env.BETTER_AUTH_URL || `https://${process.env.VERCEL_URL}`,
+    trustedOrigins: process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : [],
+    // --------------------------------------------------
+
     database: prismaAdapter(prisma,{
         provider:"postgresql",
     }),
