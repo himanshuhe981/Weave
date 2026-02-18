@@ -7,7 +7,12 @@ import prisma from "@/lib/db";
 import Cryptr from "cryptr";
 import ky from "ky";
 
-const cryptr = new Cryptr(process.env.ENCRYPTION_KEY!);
+if (!process.env.ENCRYPTION_KEY) {
+  throw new Error("ENCRYPTION_KEY is not set");
+}
+
+const cryptr = new Cryptr(process.env.ENCRYPTION_KEY);
+
 
 type TelegramData = {
   variableName?: string;
@@ -17,30 +22,38 @@ type TelegramData = {
 };
 
 export const telegramExecutor: NodeExecutor<TelegramData> =
-  async ({ data, nodeId, context, step, publish }) => {
-
-    await publish(
-      telegramChannel().status({
-        nodeId,
-        status: "loading",
-      })
-    );
+  async ({ data, nodeId, context, step, publish, userId }) => {
 
     if (!data.credentialId || !data.chatId || !data.content) {
+      await publish(
+        telegramChannel().status({ nodeId, status: "error" })
+      );
       throw new NonRetriableError("Missing required Telegram fields");
     }
 
-    const credential = await prisma.credential.findUniqueOrThrow({
-  where: { id: data.credentialId },
-});
-
-    const botToken = cryptr.decrypt(credential.value);
-
-    const rawContent = Handlebars.compile(data.content)(context);
-    const content = decode(rawContent);
+    await publish(
+      telegramChannel().status({ nodeId, status: "loading" })
+    );
 
     try {
       const result = await step.run("telegram-send", async () => {
+
+        const credential = await prisma.credential.findUniqueOrThrow({
+          where: {
+            id: data.credentialId,
+            userId,
+          },
+        });
+
+        if (credential.type !== "TELEGRAM") {
+          throw new NonRetriableError("Invalid credential type");
+        }
+
+        const botToken = cryptr.decrypt(credential.value);
+
+        const rawContent = Handlebars.compile(data.content!)(context);
+        const content = decode(rawContent);
+
         await ky.post(
           `https://api.telegram.org/bot${botToken}/sendMessage`,
           {
@@ -60,21 +73,17 @@ export const telegramExecutor: NodeExecutor<TelegramData> =
       });
 
       await publish(
-        telegramChannel().status({
-          nodeId,
-          status: "success",
-        })
+        telegramChannel().status({ nodeId, status: "success" })
       );
 
       return result;
 
     } catch (error) {
       await publish(
-        telegramChannel().status({
-          nodeId,
-          status: "error",
-        })
+        telegramChannel().status({ nodeId, status: "error" })
       );
+
       throw error;
     }
   };
+

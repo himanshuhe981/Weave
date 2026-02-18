@@ -109,6 +109,7 @@ export const TelegramDialog = ({
                   <FormControl>
                     <Input placeholder="myTelegram" {...field} />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -178,6 +179,7 @@ export const TelegramDialog = ({
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
