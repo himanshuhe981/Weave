@@ -4,8 +4,8 @@ import { EmptyView, EntityContainer, EntityHeader, EntityItem, EntityList, Entit
 import { useRouter } from "next/navigation";
 import { useCredentialsParams } from "../hooks/use-credentials-params";
 import { useEntitySearch } from "@/hooks/use-entity-search";
-import type { Credential } from "@/generated/prisma/client";
-// import  { CredentialType } from "@/generated/prisma/client"; // --
+import type { Credential } from "@prisma/client";
+// import  { CredentialType } from "@prisma/client"; // --
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 

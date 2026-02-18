@@ -27,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { google } from "@ai-sdk/google";
 import { useCredentialsByType } from "@/features/credentials/hooks/use-credentials";
-import { CredentialType } from "@/generated/prisma/enums";
+import { CredentialType } from "@prisma/client";
 import Image from "next/image";
 
 

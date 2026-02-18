@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 
 import { toast } from "sonner";
 import { useCredentialsParams } from "./use-credentials-params";
-import { CredentialType } from "@/generated/prisma/enums";
+import { CredentialType } from "@prisma/client";
 
 export const useSuspenseCredentials = () => {
     const trpc = useTRPC();

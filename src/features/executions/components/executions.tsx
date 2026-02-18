@@ -1,8 +1,8 @@
 "use client"
 import { EmptyView, EntityContainer, EntityHeader, EntityItem, EntityList, EntityPagination, EntitySearch, ErrorView, LoadingView } from "@/components/entity-components";
 import { useRouter } from "next/navigation";
-import type { Execution } from "@/generated/prisma/client";
-// import  { Executionstatus } from "@/generated/prisma/client"; // --
+import type { Execution } from "@prisma/client";
+// import  { Executionstatus } from "@prisma/client"; // --
 import { formatDistanceToNow } from "date-fns";
 import { useSuspenseExecutions } from "../hooks/use-executions";
 import { useExecutionsParams } from "../hooks/use-executions-params";

@@ -1,5 +1,5 @@
 "use client"
-import { Execution } from "@/generated/prisma/client";
+import { Execution } from "@prisma/client";
 import { CheckCircle2Icon, ClockIcon, Loader2Icon, XCircleIcon } from "lucide-react";
 import { useSuspenseExecution } from "../hooks/use-executions";
 import { useState } from "react";

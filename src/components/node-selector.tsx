@@ -11,7 +11,7 @@ import {
      SheetTitle,
      SheetTrigger,    
 } from "./ui/sheet";
-import { NodeType } from "@/generated/prisma/enums";
+import { NodeType } from "@prisma/client";
 import { Separator } from "./ui/separator";
 import { toast } from "sonner";
 
