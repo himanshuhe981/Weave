@@ -15,6 +15,7 @@ const CredentialType = {
   OPENAI: 'OPENAI',
   ANTHROPIC: 'ANTHROPIC',
   GEMINI: 'GEMINI',
+  TELEGRAM: 'TELEGRAM',
 } as const;
 
 //-------------------
@@ -130,6 +131,7 @@ const credentialLogos: Record<Credential['type'], string> = {
     [CredentialType.OPENAI] : "/logos/openai.svg",
     [CredentialType.ANTHROPIC] : "/logos/anthropic.svg",
     [CredentialType.GEMINI] : "/logos/gemini.svg",
+    [CredentialType.TELEGRAM] : "/logos/telegram.svg",
 };
 
 export const CredentialItem = ({

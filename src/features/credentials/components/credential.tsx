@@ -61,6 +61,11 @@ type FormValues = z.infer<typeof formSchema>;
         label: "Gemini",
         logo: "/logos/gemini.svg",
     },
+    {
+    value: CredentialType.TELEGRAM,
+    label: "Telegram",
+    logo: "/logos/telegram.svg",
+},
  ]
 
 interface CredentialFormProps {
