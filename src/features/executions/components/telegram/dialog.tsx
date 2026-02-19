@@ -82,6 +82,8 @@ export const TelegramDialog = ({
     }
   }, [open]);
 
+  const watchVariableName = form.watch("variableName") || "myTelegram";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -98,7 +100,7 @@ export const TelegramDialog = ({
               onSubmit(values);
               onOpenChange(false);
             })}
-            className="space-y-6"
+            className="space-y-8 mt-4"
           >
             <FormField
               control={form.control}
@@ -109,6 +111,17 @@ export const TelegramDialog = ({
                   <FormControl>
                     <Input placeholder="myTelegram" {...field} />
                   </FormControl>
+                  <FormDescription>
+                    You can inject values from previous nodes using {"{{variable.path}}"}.
+                    <br />
+                    Example:
+                    <code className="block mt-1 bg-muted px-2 py-1 rounded text-xs">
+                      {`Hello {{geminiNode.text}}`}
+                    </code>
+                  </FormDescription>
+
+                 
+
                   <FormMessage />
                 </FormItem>
               )}
@@ -179,6 +192,20 @@ export const TelegramDialog = ({
                       {...field}
                     />
                   </FormControl>
+                  <FormDescription>
+                      You can inject values from previous nodes using{" "}
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                        {"{{variable.path}}"}
+                      </code>.
+                      <br />
+                      Example:{" "}
+                      <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                        {`Hello {{geminiNode.text}}`}
+                      </code>
+                </FormDescription>
+
+                 
+
                   <FormMessage />
                 </FormItem>
               )}
