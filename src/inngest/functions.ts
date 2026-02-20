@@ -147,6 +147,7 @@ import { slackChannel } from "./channels/slack";
 import { telegramChannel } from "./channels/telegram";
 import { conditionChannel } from "./channels/condition";
 import { jsonTransformChannel } from "./channels/json-transform";
+import { delayChannel } from "./channels/delay";
 
 export const executeWorkflow = inngest.createFunction(
   {
@@ -178,6 +179,7 @@ export const executeWorkflow = inngest.createFunction(
       telegramChannel(),
       conditionChannel(),
       jsonTransformChannel(),
+      delayChannel(),
     ],
   },
   async ({ event, step, publish }) => {

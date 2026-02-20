@@ -143,6 +143,7 @@ enum NodeType {
   TELEGRAM
   CONDITION
   JSON_TRANSFORM
+  DELAY
 }
 
 model Node {
