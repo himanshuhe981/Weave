@@ -141,6 +141,7 @@ enum NodeType {
   DISCORD
   SLACK
   TELEGRAM
+  CONDITION
 }
 
 model Node {

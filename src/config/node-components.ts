@@ -11,6 +11,7 @@ import { AnthropicNode } from "@/features/executions/components/anthropic/node";
 import { DiscordNode } from "@/features/executions/components/discord/node";
 import { SlackNode } from "@/features/executions/components/slack/node";
 import { TelegramNode } from "@/features/executions/components/telegram/node";
+import { ConditionNode } from "@/features/executions/components/condition/node";
 
 
 export const nodeComponents = {
@@ -25,6 +26,9 @@ export const nodeComponents = {
     [NodeType.DISCORD]: DiscordNode,
     [NodeType.SLACK]: SlackNode,
     [NodeType.TELEGRAM]: TelegramNode,
+    [NodeType.CONDITION]: ConditionNode,
+
+
 
 
 } as const satisfies NodeTypes;
