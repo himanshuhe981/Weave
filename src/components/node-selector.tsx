@@ -86,6 +86,13 @@ const executionNodes: NodeTypeOption[] = [
         description: "Send a message to Telegram",
         icon: "/logos/telegram.svg",
     },
+    {
+        type: NodeType.CONDITION,
+        label: "IF Condition",
+        description: "Branch workflow based on condition",
+        icon: "/logos/condition.svg",
+    },
+
 
 ];
 
