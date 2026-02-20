@@ -92,6 +92,12 @@ const executionNodes: NodeTypeOption[] = [
         description: "Branch workflow based on condition",
         icon: "/logos/condition.svg",
     },
+     {
+        type: NodeType.JSON_TRANSFORM,
+        label: "JSON Transform",
+        description: "Transform and reshape JSON data using templates",
+        icon: "/logos/json.svg",
+    },
 
 
 ];

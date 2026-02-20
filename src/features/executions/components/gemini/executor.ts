@@ -120,24 +120,65 @@ try {
         },
     );
 
-    const text = 
-        steps[0].content[0].type === "text"
-        ? steps[0].content[0].text
-        : "";
+    // const text = 
+    //     steps[0].content[0].type === "text"
+    //     ? steps[0].content[0].text
+    //     : "";
 
-        await publish(
-            geminiChannel().status({
-                nodeId,
-                status: "success",
-            }),
-        );
+    //     await publish(
+    //         geminiChannel().status({
+    //             nodeId,
+    //             status: "success",
+    //         }),
+    //     );
 
-        return {
-            ...context,
-            [data.variableName]: {
-            text,
-            },
-        }
+    //     return {
+    //         ...context,
+    //         [data.variableName]: {
+    //         text,
+    //         },
+    //     }
+
+    // Extract text
+let text =
+  steps[0].content[0].type === "text"
+    ? steps[0].content[0].text
+    : "";
+
+// Remove markdown fences
+text = text.trim();
+
+if (text.startsWith("```")) {
+  text = text
+    .replace(/^```[a-zA-Z]*\n?/, "")
+    .replace(/```$/, "")
+    .trim();
+}
+
+// Try parsing JSON safely
+let finalResult: unknown;
+
+try {
+  finalResult = JSON.parse(text);
+} catch {
+  finalResult = {
+    text,
+  };
+}
+
+// Publish success BEFORE returning
+await publish(
+  geminiChannel().status({
+    nodeId,
+    status: "success",
+  })
+);
+
+// Single return point
+return {
+  ...context,
+  [data.variableName]: finalResult,
+};
 
 } catch (error) {
     await publish(

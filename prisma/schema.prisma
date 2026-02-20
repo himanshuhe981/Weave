@@ -142,6 +142,7 @@ enum NodeType {
   SLACK
   TELEGRAM
   CONDITION
+  JSON_TRANSFORM
 }
 
 model Node {

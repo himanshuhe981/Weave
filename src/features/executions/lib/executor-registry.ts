@@ -11,6 +11,7 @@ import { discordExecutor } from "../components/discord/executor";
 import { slackExecutor } from "../components/slack/executor";
 import { telegramExecutor } from "../components/telegram/executor";
 import { conditionExecutor } from "../components/condition/executor";
+import { jsonTransformExecutor } from "../components/json-transform/executor";
 
 
 export const executorRegistry: Record<NodeType, NodeExecutor > = {
@@ -26,6 +27,7 @@ export const executorRegistry: Record<NodeType, NodeExecutor > = {
     [NodeType.SLACK]: slackExecutor,
     [NodeType.TELEGRAM]: telegramExecutor,
     [NodeType.CONDITION]: conditionExecutor,
+    [NodeType.JSON_TRANSFORM]: jsonTransformExecutor,
 
 
 };
