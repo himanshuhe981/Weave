@@ -12,6 +12,7 @@ import { DiscordNode } from "@/features/executions/components/discord/node";
 import { SlackNode } from "@/features/executions/components/slack/node";
 import { TelegramNode } from "@/features/executions/components/telegram/node";
 import { ConditionNode } from "@/features/executions/components/condition/node";
+import { JsonTransformNode } from "@/features/executions/components/json-transform/node";
 
 
 export const nodeComponents = {
@@ -27,6 +28,7 @@ export const nodeComponents = {
     [NodeType.SLACK]: SlackNode,
     [NodeType.TELEGRAM]: TelegramNode,
     [NodeType.CONDITION]: ConditionNode,
+    [NodeType.JSON_TRANSFORM]: JsonTransformNode,
 
 
 
