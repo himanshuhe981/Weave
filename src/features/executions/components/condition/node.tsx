@@ -106,6 +106,7 @@ export const ConditionNode = memo(
 
           <BaseExecutionNode
             {...props}
+            hideHandles
             id={props.id}
             icon="/logos/condition.svg"
             name="Condition"

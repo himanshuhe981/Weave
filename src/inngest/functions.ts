@@ -196,14 +196,17 @@ export const executeWorkflow = inngest.createFunction(
       });
     });
 
-    // ⚠️ DO NOT use step.run here (prevents Date serialization issue)
-    const workflow = await prisma.workflow.findUniqueOrThrow({
-      where: { id: workflowId },
-      include: {
-        nodes: true,
-        connections: true,
-      },
-    });
+    const workflow = await step.run("load-workflow", async () => {
+  const wf = await prisma.workflow.findUniqueOrThrow({
+    where: { id: workflowId },
+    include: {
+      nodes: true,
+      connections: true,
+    },
+  });
+
+  return JSON.parse(JSON.stringify(wf));
+});
 
     const sortedNodes = topologicalSort(
       workflow.nodes,
@@ -225,7 +228,7 @@ export const executeWorkflow = inngest.createFunction(
 
     let context = event.data.initialData || {};
 
-    // 🔥 BRANCHING ENGINE
+    //  BRANCHING ENGINE
     let currentNodeId = sortedNodes[0].id;
 
     // Safety guard (prevents infinite loops)
@@ -235,7 +238,7 @@ export const executeWorkflow = inngest.createFunction(
     while (currentNodeId && executionCounter < MAX_STEPS) {
       executionCounter++;
 
-      const node = workflow.nodes.find((n) => n.id === currentNodeId);
+      const node = workflow.nodes.find((n: { id: string; }) => n.id === currentNodeId);
       if (!node) break;
 
       const executor = getExecutor(node.type as NodeType);
@@ -249,14 +252,15 @@ export const executeWorkflow = inngest.createFunction(
         publish,
       });
 
-      context = result;
+      const { __branch, ...cleanContext } = result;
+      context = cleanContext;
 
-      // 🔥 CONDITION BRANCH
-      if (node.type === NodeType.CONDITION && context.__branch) {
-        const branch = context.__branch; // "true" | "false"
+      // CONDITION BRANCH
+      if (node.type === NodeType.CONDITION && result.__branch) {
+  const branch = result.__branch; // "true" | "false"
 
         const nextConnection = workflow.connections.find(
-          (c) =>
+          (c: { fromNodeId: any; fromOutput: {}; }) =>
             c.fromNodeId === node.id &&
             c.fromOutput === branch
         );
@@ -269,7 +273,7 @@ export const executeWorkflow = inngest.createFunction(
 
       // 🔹 NORMAL FLOW
       const nextConnection = workflow.connections.find(
-        (c) => c.fromNodeId === node.id
+        (c: { fromNodeId: any; }) => c.fromNodeId === node.id
       );
 
       if (!nextConnection) break;

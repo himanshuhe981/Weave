@@ -17,6 +17,7 @@ interface BaseExecutionNodeProps extends NodeProps {
     status?: NodeStatus;
     onSettings?: () => void;
     onDoubleClick?: () => void;
+    hideHandles?: boolean;
 };
 
 export const BaseExecutionNode = memo(
@@ -29,6 +30,7 @@ export const BaseExecutionNode = memo(
         status="initial",
         onSettings,
         onDoubleClick,
+        hideHandles = false,
 
     }:BaseExecutionNodeProps) => {
        
@@ -65,16 +67,20 @@ export const BaseExecutionNode = memo(
                             <Icon className="size-4 text-muted-foreground"/>
                         )}
                         {children}
-                        <BaseHandle
-                            id="target-1"
-                            type="target"
-                            position={Position.Left}
-                        />
-                        <BaseHandle
-                            id="source-1"
-                            type="source"
-                            position={Position.Right}
-                        />
+                        {!hideHandles && (
+                    <>
+                      <BaseHandle
+                        id="target-1"
+                        type="target"
+                        position={Position.Left}
+                      />
+                      <BaseHandle
+                        id="source-1"
+                        type="source"
+                        position={Position.Right}
+                      />
+                    </>
+)}
                         </BaseNodeContent>
                     </BaseNode>
                 </NodeStatusIndicator>

@@ -2,21 +2,23 @@ import type { NodeExecutor } from "@/features/executions/types";
 import { NonRetriableError } from "inngest";
 import { conditionChannel } from "@/inngest/channels/condition";
 
-type ConditionRule = {
+type ConditionOperator =
+  | "equals"
+  | "not_equals"
+  | "contains"
+  | "greater_than"
+  | "less_than";
+
+type Rule = {
   left: string;
-  operator:
-    | "equals"
-    | "not_equals"
-    | "contains"
-    | "greater_than"
-    | "less_than";
+  operator: ConditionOperator;
   right?: string;
 };
 
 type ConditionData = {
   variableName?: string;
   combinator?: "AND" | "OR";
-  rules?: ConditionRule[];
+  rules?: Rule[];
 };
 
 function getValueFromPath(obj: any, path: string) {
@@ -30,26 +32,27 @@ function getValueFromPath(obj: any, path: string) {
 
 export const conditionExecutor: NodeExecutor<ConditionData> =
   async ({ data, nodeId, context, publish }) => {
-    await publish(
-      conditionChannel().status({
-        nodeId,
-        status: "loading",
-      })
-    );
-
     try {
-      if (
-        !data.variableName ||
-        !data.rules ||
-        data.rules.length === 0
-      ) {
-        throw new NonRetriableError(
-          "Condition node misconfigured"
-        );
+      await publish(
+        conditionChannel().status({
+          nodeId,
+          status: "loading",
+        })
+      );
+
+      if (!data.variableName || !data.rules?.length) {
+        throw new NonRetriableError("Condition node misconfigured");
       }
 
       const results = data.rules.map((rule) => {
         const leftValue = getValueFromPath(context, rule.left);
+
+        if (rule.right === undefined) {
+          throw new NonRetriableError(
+            `Right value missing for rule: ${rule.left}`
+          );
+        }
+
         const rightValue = rule.right;
 
         switch (rule.operator) {
@@ -60,9 +63,7 @@ export const conditionExecutor: NodeExecutor<ConditionData> =
             return String(leftValue) !== String(rightValue);
 
           case "contains":
-            return String(leftValue).includes(
-              String(rightValue)
-            );
+            return String(leftValue).includes(String(rightValue));
 
           case "greater_than":
             return Number(leftValue) > Number(rightValue);
@@ -71,28 +72,26 @@ export const conditionExecutor: NodeExecutor<ConditionData> =
             return Number(leftValue) < Number(rightValue);
 
           default:
-            return false;
+            throw new NonRetriableError("Invalid condition operator");
         }
       });
 
       const passed =
         data.combinator === "OR"
           ? results.some(Boolean)
-          : results.every(Boolean); // default AND
+          : results.every(Boolean);
 
       await publish(
         conditionChannel().status({
           nodeId,
-          status: passed ? "success" : "error",
+          status: "success", // FALSE is NOT error
         })
       );
 
       return {
         ...context,
         __branch: passed ? "true" : "false",
-        [data.variableName]: {
-          passed,
-        },
+        [data.variableName]: { passed },
       };
     } catch (error) {
       await publish(
@@ -101,6 +100,7 @@ export const conditionExecutor: NodeExecutor<ConditionData> =
           status: "error",
         })
       );
+
       throw error;
     }
   };
