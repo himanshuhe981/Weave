@@ -11,6 +11,7 @@ import { JSON_TRANSFORM_CHANNEL_NAME } from "@/inngest/channels/json-transform";
 type JsonTransformNodeData = {
   variableName?: string;
   template?: string;
+  strict?: boolean;
 };
 
 type JsonTransformNodeType = Node<JsonTransformNodeData>;

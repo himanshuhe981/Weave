@@ -35,20 +35,13 @@ export const jsonTransformExecutor: NodeExecutor<JsonTransformData> =
 
       let result: unknown;
 
-try {
-  result = JSON.parse(resultString);
-} catch (error) {
-  await publish(
-    jsonTransformChannel().status({
-      nodeId,
-      status: "error",
-    })
-  );
-
-  throw new NonRetriableError(
-    `JSON Transform produced invalid JSON:\n${resultString}`
-  );
-}
+      try {
+        result = JSON.parse(resultString);
+      } catch {
+        throw new NonRetriableError(
+          `JSON Transform produced invalid JSON:\n${resultString}`
+        );
+      }
 
       await publish(
         jsonTransformChannel().status({ nodeId, status: "success" })
