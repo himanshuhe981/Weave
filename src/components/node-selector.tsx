@@ -41,6 +41,12 @@ const triggerNodes: NodeTypeOption[] = [
         description: "Runs the flow when a Stripe Event is captured",
         icon: "/logos/stripe.svg",
     },
+     {
+        type: NodeType.WEBHOOK_TRIGGER,
+        label: "Webhook",
+        description: "Trigger workflow via HTTP POST request",
+        icon: "/logos/webhook.svg",
+    },
 ];
 
 const executionNodes: NodeTypeOption[] = [
@@ -104,6 +110,7 @@ const executionNodes: NodeTypeOption[] = [
         description: "Pause workflow execution for a specified time",
         icon: "/logos/delay.svg", // or use an icon component
     },
+   
 
 
 ];

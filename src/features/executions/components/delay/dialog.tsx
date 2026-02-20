@@ -123,8 +123,8 @@ export const DelayDialog = ({
                 <FormItem>
                   <FormLabel>Unit</FormLabel>
                   <Select
+                    value={field.value}
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
