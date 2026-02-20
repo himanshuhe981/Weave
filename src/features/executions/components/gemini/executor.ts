@@ -156,14 +156,12 @@ if (text.startsWith("```")) {
 }
 
 // Try parsing JSON safely
-let finalResult: unknown;
+let parsed: unknown | null = null;
 
 try {
-  finalResult = JSON.parse(text);
+  parsed = JSON.parse(text);
 } catch {
-  finalResult = {
-    text,
-  };
+  parsed = null;
 }
 
 // Publish success BEFORE returning
@@ -174,10 +172,13 @@ await publish(
   })
 );
 
-// Single return point
+// Always return BOTH text and parsed
 return {
   ...context,
-  [data.variableName]: finalResult,
+  [data.variableName]: {
+    text,      // Always available (backward compatible)
+    parsed,    // Structured JSON if valid, otherwise null
+  },
 };
 
 } catch (error) {
