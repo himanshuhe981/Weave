@@ -98,6 +98,12 @@ const executionNodes: NodeTypeOption[] = [
         description: "Transform and reshape JSON data using templates",
         icon: "/logos/json.svg",
     },
+    {
+        type: NodeType.DELAY,
+        label: "Delay",
+        description: "Pause workflow execution for a specified time",
+        icon: "/logos/delay.svg", // or use an icon component
+    },
 
 
 ];
