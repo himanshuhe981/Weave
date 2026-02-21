@@ -14,6 +14,7 @@ import { TelegramNode } from "@/features/executions/components/telegram/node";
 import { ConditionNode } from "@/features/executions/components/condition/node";
 import { JsonTransformNode } from "@/features/executions/components/json-transform/node";
 import { DelayNode } from "@/features/executions/components/delay/node";
+import { WebhookTriggerNode } from "@/features/triggers/components/webhook-trigger/node";
 
 
 export const nodeComponents = {
@@ -31,7 +32,7 @@ export const nodeComponents = {
     [NodeType.CONDITION]: ConditionNode,
     [NodeType.JSON_TRANSFORM]: JsonTransformNode,
     [NodeType.DELAY]: DelayNode,
-
+    [NodeType.WEBHOOK_TRIGGER]: WebhookTriggerNode,
 
 
 
