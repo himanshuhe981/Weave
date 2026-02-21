@@ -145,6 +145,7 @@ enum NodeType {
   CONDITION
   JSON_TRANSFORM
   DELAY
+  SCHEDULE_TRIGGER
 }
 
 model Node {

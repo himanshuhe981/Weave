@@ -19,6 +19,7 @@ import { conditionChannel } from "./channels/condition";
 import { jsonTransformChannel } from "./channels/json-transform";
 import { delayChannel } from "./channels/delay";
 import { webhookTriggerChannel } from "./channels/webhook-trigger";
+import { scheduleTriggerChannel } from "./channels/schedule-trigger";
 
 export const executeWorkflow = inngest.createFunction(
   {
@@ -52,6 +53,7 @@ export const executeWorkflow = inngest.createFunction(
       jsonTransformChannel(),
       delayChannel(),
       webhookTriggerChannel(),
+      scheduleTriggerChannel(),
     ],
   },
   async ({ event, step, publish }) => {
@@ -179,3 +181,4 @@ export const executeWorkflow = inngest.createFunction(
     };
   }
 );
+

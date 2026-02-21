@@ -86,7 +86,7 @@ export const ConditionNode = memo(
 
         <div className="relative">
           {/* Input Handle */}
-          <Handle type="target" position={Position.Left} />
+          <Handle type="target" id="target-1" position={Position.Left} />
 
           {/* TRUE Handle */}
           <Handle

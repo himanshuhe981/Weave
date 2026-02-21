@@ -14,6 +14,8 @@ import { conditionExecutor } from "../components/condition/executor";
 import { jsonTransformExecutor } from "../components/json-transform/executor";
 import { delayExecutor } from "../components/delay/executor";
 import { webhookTriggerExecutor } from "../../triggers/components/webhook-trigger/executor";
+import { scheduleTriggerExecutor } 
+from "@/features/triggers/components/schedule-trigger/executor";
 
 
 export const executorRegistry: Record<NodeType, NodeExecutor > = {
@@ -32,6 +34,7 @@ export const executorRegistry: Record<NodeType, NodeExecutor > = {
     [NodeType.JSON_TRANSFORM]: jsonTransformExecutor,
     [NodeType.DELAY]: delayExecutor,
     [NodeType.WEBHOOK_TRIGGER]: webhookTriggerExecutor,
+    [NodeType.SCHEDULE_TRIGGER]: scheduleTriggerExecutor,
 
 
 };

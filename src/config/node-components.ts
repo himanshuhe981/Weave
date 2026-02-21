@@ -15,6 +15,7 @@ import { ConditionNode } from "@/features/executions/components/condition/node";
 import { JsonTransformNode } from "@/features/executions/components/json-transform/node";
 import { DelayNode } from "@/features/executions/components/delay/node";
 import { WebhookTriggerNode } from "@/features/triggers/components/webhook-trigger/node";
+import { ScheduleTriggerNode } from "@/features/triggers/components/schedule-trigger/node";
 
 
 export const nodeComponents = {
@@ -33,6 +34,7 @@ export const nodeComponents = {
     [NodeType.JSON_TRANSFORM]: JsonTransformNode,
     [NodeType.DELAY]: DelayNode,
     [NodeType.WEBHOOK_TRIGGER]: WebhookTriggerNode,
+    [NodeType.SCHEDULE_TRIGGER]: ScheduleTriggerNode,
 
 
 
