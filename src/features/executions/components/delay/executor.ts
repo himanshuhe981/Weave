@@ -47,12 +47,11 @@ export const delayExecutor: NodeExecutor<DelayData> =
       //  Optional jitter (±10%)
       if (data.jitter) {
         const variation = delayMs * 0.1;
-        delayMs += (Math.random() * variation * 2 - variation);
+        delayMs += Math.random() * variation * 2 - variation;
       }
 
       //  Safety limit (max 30 days)
       const MAX_DELAY = 30 * 24 * 60 * 60 * 1000;
-
       if (delayMs > MAX_DELAY) {
         throw new NonRetriableError(
           "Delay exceeds maximum allowed time"
@@ -65,18 +64,27 @@ export const delayExecutor: NodeExecutor<DelayData> =
         `${Math.floor(delayMs)}ms`
       );
 
-      //  Publish success
-      await publish(
-        delayChannel().status({ nodeId, status: "success" })
-      );
-
-      return context;
-
     } catch (error) {
-      await publish(
-        delayChannel().status({ nodeId, status: "error" })
-      );
+
+      try {
+        await publish(
+          delayChannel().status({ nodeId, status: "error" })
+        );
+      } catch {
+      
+      }
 
       throw error;
     }
+
+   
+    try {
+      await publish(
+        delayChannel().status({ nodeId, status: "success" })
+      );
+    } catch {
+
+    }
+
+    return context;
   };

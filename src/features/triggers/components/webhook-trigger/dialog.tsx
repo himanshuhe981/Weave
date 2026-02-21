@@ -29,9 +29,10 @@ export const WebhookTriggerDialog = ({
 
   const webhookUrl = `${baseUrl}/api/webhooks/${workflowId}`;
 
-  const curlExample = `curl -X POST ${webhookUrl}
--H "Content-Type: application/json"
--d '{"email":"test@example.com"}'`;
+  const curlExample = `curl -X POST ${webhookUrl} \\
+  -H "Content-Type: application/json" \\
+  -H "x-webhook-secret: YOUR_WEBHOOK_SECRET" \\
+  -d '{"email":"test@example.com"}'`;
 
   const copy = async (value: string, label: string) => {
     try {
@@ -90,6 +91,7 @@ export const WebhookTriggerDialog = ({
 
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>• Send a POST request to the webhook URL</li>
+                <li>• Include Header x-webhook-secret: your_secret </li>
                 <li>• Include JSON in the request body</li>
                 <li>• Workflow runs automatically</li>
               </ul>

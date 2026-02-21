@@ -7,6 +7,9 @@ import {
   type Realtime,
 } from "@inngest/realtime";
 
+import { auth } from "@/lib/auth"; // adjust import to your auth helper
+import { headers } from "next/headers";
+
 export type WebhookTriggerRealtimeToken = Realtime.Token<
   typeof webhookTriggerChannel,
   ["status"]
@@ -14,6 +17,9 @@ export type WebhookTriggerRealtimeToken = Realtime.Token<
 
 export async function fetchWebhookTriggerRealtimeToken():
   Promise<WebhookTriggerRealtimeToken> {
+
+    const session = await auth.api.getSession({ headers: await headers() });
+     if (!session) throw new Error("Unauthorized");
 
   const token = await getSubscriptionToken(inngest, {
     channel: webhookTriggerChannel(),

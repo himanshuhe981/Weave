@@ -13,6 +13,7 @@ export const webhookTriggerExecutor: NodeExecutor<WebhookTriggerData> =
       })
     );
 
+  try {
     const result = await step.run(
       "webhook-trigger",
       async () => context
@@ -26,4 +27,13 @@ export const webhookTriggerExecutor: NodeExecutor<WebhookTriggerData> =
     );
 
     return result;
+  } catch (error) {
+      await publish(
+        webhookTriggerChannel().status({
+          nodeId,
+          status: "error",
+        })
+      );
+      throw error;
+    }
   };

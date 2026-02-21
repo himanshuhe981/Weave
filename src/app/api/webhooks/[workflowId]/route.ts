@@ -9,6 +9,16 @@ export async function POST(
   try {
     const { workflowId } = await context.params;
 
+    const secret = request.headers.get("x-webhook-secret");
+
+    if (!secret || secret !== process.env.WEBHOOK_SECRET) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+
     const workflow = await prisma.workflow.findUnique({
       where: { id: workflowId },
       select: { id: true },
@@ -30,7 +40,17 @@ export async function POST(
     initialData: {
       webhook: {
         body,
-        headers: Object.fromEntries(request.headers.entries()),
+        headers: Object.fromEntries(
+        [...request.headers.entries()].filter(
+          ([key]) =>
+            ![
+              "authorization",
+              "cookie",
+              "set-cookie",
+              "x-forwarded-for"
+            ].includes(key.toLowerCase())
+        )
+      ),
         query: Object.fromEntries(
           request.nextUrl.searchParams.entries()
         ),
