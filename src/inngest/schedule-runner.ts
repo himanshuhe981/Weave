@@ -17,9 +17,11 @@ export const scheduleRunner = inngest.createFunction(
     }
 
     console.log("SCHEDULE RUNNER STARTED", workflowId);
-    
+
+    let iteration = 0;
     while (true) {
-      const workflow = await step.run("load-workflow", async () => {
+      iteration++;
+     const workflow = await step.run(`load-workflow-${iteration}`, async () => {
         return prisma.workflow.findUnique({
           where: { id: workflowId },
           include: { nodes: true },
@@ -31,8 +33,6 @@ export const scheduleRunner = inngest.createFunction(
       if (!workflow) {
         throw new NonRetriableError("Workflow not found");
       }
-
-      console.log("Node types in DB:", workflow.nodes.map(n => n.type));
 
       const scheduleNode = workflow.nodes.find(
         (n) => n.type === NodeType.SCHEDULE_TRIGGER
@@ -61,9 +61,9 @@ export const scheduleRunner = inngest.createFunction(
 
       const nextDate = interval.next().toDate();
 
-      await step.sleepUntil(`next-run-${workflowId}`, nextDate);
+      await step.sleepUntil(`next-run-${workflowId}-${iteration}`, nextDate);
 
-      await step.run("trigger-workflow", async () => {
+      await step.run(`trigger-workflow-${iteration}`, async () => {
         await inngest.send({
           name: "workflows/execute.workflow",
           data: {

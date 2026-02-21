@@ -27,10 +27,22 @@ function detectPresetFromCron(cron: string) {
   if (cron === "*/5 * * * *") return "every-5-min";
   if (cron === "0 * * * *") return "hourly";
   if (cron === "0 9 * * *") return "daily-9am";
-  if (cron === "0 0 * * 1") return "weekly-monday";
-  if (cron === "0 0 1 * *") return "monthly-1st";
+  if (cron === "0 9 * * 1") return "weekly-monday";
+  if (cron === "0 9 1 * *") return "monthly-1st";
   return "custom";
 }
+
+type ScheduleTriggerDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  nodeId: string;
+  workflowId: string | undefined;
+  data?: {
+    cron?: string;
+    timezone?: string;
+    enabled?: boolean;
+  };
+};
 
 export const ScheduleTriggerDialog = ({
   open,
@@ -38,7 +50,7 @@ export const ScheduleTriggerDialog = ({
   nodeId,
   workflowId,
   data,
-}: any) => {
+}: ScheduleTriggerDialogProps) => {
   const { setNodes } = useReactFlow();
 
   const {

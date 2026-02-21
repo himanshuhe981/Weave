@@ -12,9 +12,11 @@ export const ScheduleTriggerNode = memo(
     const [open, setOpen] = useState(false);
 
     const params = useParams();
-    console.log("params:", params);
-    const workflowId = params.workflowId as string;
-    console.log("workflowId extracted:", workflowId);
+    
+    const workflowId = Array.isArray(params.workflowId)
+     ? params.workflowId[0]
+     : params.workflowId;
+
 
     const nodeStatus = useNodeStatus({
       nodeId: props.id,
@@ -23,7 +25,7 @@ export const ScheduleTriggerNode = memo(
       refreshToken: fetchScheduleTriggerRealtimeToken,
     });
 
-console.log("workflowId extracted:", workflowId);
+
 
     return (
       <>
