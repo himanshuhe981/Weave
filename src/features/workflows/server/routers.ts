@@ -150,6 +150,7 @@ export const workflowsRouter = createTRPCRouter({
             include: {nodes: true, connections:true},
         });
 
+        console.log("Loaded nodes from DB:", workflow?.nodes);
         // Transform server nodes to react-flow compatible nodes
 
         const nodes: Node[] = workflow.nodes.map((node) => ({

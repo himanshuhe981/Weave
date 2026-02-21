@@ -47,6 +47,12 @@ const triggerNodes: NodeTypeOption[] = [
         description: "Trigger workflow via HTTP POST request",
         icon: "/logos/webhook.svg",
     },
+    {
+        type: NodeType.SCHEDULE_TRIGGER,
+        label: "Schedule",
+        description: "Run workflow on a schedule",
+        icon: "/logos/schedule.svg",
+    },
 ];
 
 const executionNodes: NodeTypeOption[] = [
