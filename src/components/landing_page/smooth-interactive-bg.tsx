@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 export function SmoothInteractiveBG() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mousePosRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0 });
-  const animationFrameRef = useRef<number | undefined>(undefined);
+const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
