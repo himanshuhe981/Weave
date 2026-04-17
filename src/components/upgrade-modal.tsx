@@ -40,7 +40,24 @@ export const UpgradeModal = ({
                         Cancel
                     </AlertDialogCancel>
                     <AlertDialogAction
-                    onClick={() => authClient.checkout({slug: "pro"})}
+                    onClick={async () => {
+                        const session = await authClient.getSession();
+                        const res = await authClient.checkout({
+                            slug: "pro",
+                            redirect: false
+                        } as any);
+
+                        if (res.data?.url) {
+                            const url = new URL(res.data.url);
+                            if (session.data?.user?.email) {
+                                url.searchParams.set("customer_email", session.data.user.email);
+                            }
+                            if (session.data?.user?.name) {
+                                url.searchParams.set("customer_name", session.data.user.name);
+                            }
+                            window.location.href = url.toString();
+                        }
+                    }}
                     >
                         Upgrade Now
                     </AlertDialogAction>

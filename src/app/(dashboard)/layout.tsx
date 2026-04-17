@@ -1,7 +1,10 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { requireAuth } from "@/lib/auth-utils";
 
-const Layout = ({children}:{children:React.ReactNode;}) => {
+const Layout =  async({children}:{children:React.ReactNode;}) => {
+
+    await requireAuth();
     return (
         <SidebarProvider>
             <AppSidebar/>

@@ -2,6 +2,8 @@ import { PAGINATION } from "@/config/constants";
 import { NodeType } from "@prisma/client";
 import prisma from "@/lib/db";
 import { createTRPCRouter, premiumProcedure, protectedProcedure } from "@/trpc/init";
+import { polarClient } from "@/lib/polar";
+import { TRPCError } from "@trpc/server";
 import { Search } from "lucide-react";
 import {generateSlug} from "random-word-slugs";
 import z from "zod";
@@ -31,7 +33,55 @@ export const workflowsRouter = createTRPCRouter({
             return workflow;
         }),
 
-    create: premiumProcedure.mutation(({ctx}) => {
+    getUsage: protectedProcedure.query(async ({ctx}) => {
+        let isPremium = false;
+        try {
+            const customer = await polarClient.customers.getStateExternal({
+                externalId: ctx.auth.user.id,
+            });
+            if (customer.activeSubscriptions && customer.activeSubscriptions.length > 0) {
+                isPremium = true;
+            }
+        } catch (error) {
+            isPremium = false;
+        }
+
+        const count = await prisma.workflow.count({
+            where: { userId: ctx.auth.user.id },
+        });
+
+        return {
+            count,
+            limit: 5,
+            isPremium,
+        };
+    }),
+
+    create: protectedProcedure.mutation(async ({ctx}) => {
+        let isPremium = false;
+        try {
+            const customer = await polarClient.customers.getStateExternal({
+                externalId: ctx.auth.user.id,
+            });
+            if (customer.activeSubscriptions && customer.activeSubscriptions.length > 0) {
+                isPremium = true;
+            }
+        } catch (error) {
+            isPremium = false;
+        }
+
+        if (!isPremium) {
+            const count = await prisma.workflow.count({
+                where: { userId: ctx.auth.user.id },
+            });
+            if (count >= 5) {
+                throw new TRPCError({
+                    code: "FORBIDDEN",
+                    message: "Workflow credit limit reached. Upgrade to Pro for unlimited workflows."
+                });
+            }
+        }
+
         return prisma.workflow.create({
             data: {
                 name: generateSlug(3),
