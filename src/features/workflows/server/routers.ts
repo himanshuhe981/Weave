@@ -1,16 +1,26 @@
 import { PAGINATION } from "@/config/constants";
 import { NodeType } from "@prisma/client";
 import prisma from "@/lib/db";
-import { createTRPCRouter, premiumProcedure, protectedProcedure } from "@/trpc/init";
+import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { polarClient } from "@/lib/polar";
 import { TRPCError } from "@trpc/server";
-import { Search } from "lucide-react";
-import {generateSlug} from "random-word-slugs";
+import { generateSlug } from "random-word-slugs";
 import z from "zod";
-import type {Node, Edge} from "@xyflow/react"
-import { connection } from "next/server";
-import { inngest } from "@/inngest/client";
+import type { Node, Edge } from "@xyflow/react";
 import { sendWorkflowExecution } from "@/inngest/utils";
+import { encrypt } from "@/lib/encryption";
+
+const checkUserPremium = async (userId: string) => {
+    try {
+        const customer = await polarClient.customers.getStateExternal({
+            externalId: userId,
+        });
+        return !!(customer.activeSubscriptions && customer.activeSubscriptions.length > 0);
+    } catch (error) {
+        console.error("polar.getStateExternal failed", { userId: userId, error });
+        return false;
+    }
+};
 
 
 
@@ -34,18 +44,6 @@ export const workflowsRouter = createTRPCRouter({
         }),
 
     getUsage: protectedProcedure.query(async ({ctx}) => {
-        let isPremium = false;
-        try {
-            const customer = await polarClient.customers.getStateExternal({
-                externalId: ctx.auth.user.id,
-            });
-            if (customer.activeSubscriptions && customer.activeSubscriptions.length > 0) {
-                isPremium = true;
-            }
-        } catch (error) {
-            isPremium = false;
-        }
-
         const count = await prisma.workflow.count({
             where: { userId: ctx.auth.user.id },
         });
@@ -53,33 +51,37 @@ export const workflowsRouter = createTRPCRouter({
         return {
             count,
             limit: 5,
-            isPremium,
         };
     }),
 
     create: protectedProcedure.mutation(async ({ctx}) => {
-        let isPremium = false;
-        try {
-            const customer = await polarClient.customers.getStateExternal({
-                externalId: ctx.auth.user.id,
-            });
-            if (customer.activeSubscriptions && customer.activeSubscriptions.length > 0) {
-                isPremium = true;
-            }
-        } catch (error) {
-            isPremium = false;
-        }
+        const isPremium = await checkUserPremium(ctx.auth.user.id);
 
         if (!isPremium) {
-            const count = await prisma.workflow.count({
-                where: { userId: ctx.auth.user.id },
-            });
-            if (count >= 5) {
-                throw new TRPCError({
-                    code: "FORBIDDEN",
-                    message: "Workflow credit limit reached. Upgrade to Pro for unlimited workflows."
+            return prisma.$transaction(async (tx) => {
+                const count = await tx.workflow.count({
+                    where: { userId: ctx.auth.user.id },
                 });
-            }
+                if (count >= 5) {
+                    throw new TRPCError({
+                        code: "FORBIDDEN",
+                        message: "Workflow credit limit reached. Upgrade to Pro for unlimited workflows."
+                    });
+                }
+                return tx.workflow.create({
+                    data: {
+                        name: generateSlug(3),
+                        userId: ctx.auth.user.id,
+                        nodes: {
+                            create: {
+                                type: NodeType.INITIAL,
+                                position: { x: 0, y: 0 },
+                                name: NodeType.INITIAL,
+                            },
+                        },
+                    },
+                });
+            });
         }
 
         return prisma.workflow.create({
@@ -89,13 +91,238 @@ export const workflowsRouter = createTRPCRouter({
                 nodes: {
                     create: {
                         type: NodeType.INITIAL,
-                        position: {x:0,y:0},
+                        position: { x: 0, y: 0 },
                         name: NodeType.INITIAL,
                     },
                 },
             },
         });
     }),
+    
+    deployDemo: protectedProcedure
+        .input(z.object({
+            type: z.enum(["summarizer", "triage"]),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const { type } = input;
+            const userId = ctx.auth.user.id;
+
+            const demoName = type === "summarizer"
+                ? "__demo__ AI Summarizer Bot"
+                : "__demo__ Smart Ticket Triage";
+
+            // IDEMPOTENT: return existing demo if user already has one
+            const existing = await prisma.workflow.findFirst({
+                where: { userId, name: demoName },
+                select: { id: true },
+            });
+            if (existing) {
+                return { id: existing.id, demoType: type };
+            }
+
+            // First time: create the workflow scaffold
+            const workflow = await prisma.workflow.create({
+                data: { name: demoName, userId }
+            });
+
+            try {
+                if (type === "summarizer") {
+                    const [triggerNode, aiNode, discordNode] = await Promise.all([
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "WEBHOOK_TRIGGER",
+                                name: "WEBHOOK_TRIGGER",
+                                position: { x: 100, y: 200 },
+                                data: {}
+                            }
+                        }),
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "GEMINI",
+                                name: "GEMINI",
+                                position: { x: 500, y: 200 },
+                                // variableName, credentialId, model, userPrompt â€” all read from data by executor
+                                data: {
+                                    variableName: "myGemini",
+                                    model: "gemini-2.5-flash-lite",
+                                    systemPrompt: "You are a helpful assistant that summarizes content.",
+                                    userPrompt: "Summarize the following content as 3 concise bullet points:\n{{webhook.body.text}}",
+                                }
+                            }
+                        }),
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "DISCORD",
+                                name: "DISCORD",
+                                position: { x: 900, y: 200 },
+                                // Discord executor reads: variableName, webhookUrl, content, username
+                                data: {
+                                    variableName: "myDiscord",
+                                    content: "ðŸ“‹ Summary:\n{{myGemini.text}}",
+                                }
+                            }
+                        }),
+                    ]);
+
+                    await prisma.connection.createMany({
+                        data: [
+                            { workflowId: workflow.id, fromNodeId: triggerNode.id, toNodeId: aiNode.id, fromOutput: "source-1", toInput: "target-1" },
+                            { workflowId: workflow.id, fromNodeId: aiNode.id, toNodeId: discordNode.id, fromOutput: "source-1", toInput: "target-1" },
+                        ]
+                    });
+                }
+                else if (type === "triage") {
+                    const [triggerNode, aiNode, conditionNode, slackNode, discordNode] = await Promise.all([
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "MANUAL_TRIGGER",
+                                name: "MANUAL_TRIGGER",
+                                position: { x: 100, y: 300 },
+                                data: {}
+                            }
+                        }),
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "GEMINI",
+                                name: "GEMINI",
+                                position: { x: 500, y: 300 },
+                                data: {
+                                    variableName: "myGemini",
+                                    model: "gemini-2.5-flash-lite",
+                                    systemPrompt: "You are a support ticket classifier. Respond with exactly one word: 'urgent' or 'normal'.",
+                                    userPrompt: "Classify this support ticket:\n\nSubject: Server Down!\nOur production database is unreachable and all our customers are getting 500 errors. Please help immediately!",
+                                }
+                            }
+                        }),
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "CONDITION",
+                                name: "CONDITION",
+                                position: { x: 900, y: 300 },
+                                data: {
+                                    variableName: "myCondition",
+                                    rules: [{ left: "{{myGemini.text}}", operator: "contains", right: "urgent" }],
+                                    combinator: "AND"
+                                }
+                            }
+                        }),
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "SLACK",
+                                name: "SLACK",
+                                position: { x: 1300, y: 150 },
+                                // Slack executor reads: variableName, webhookUrl, content
+                                data: {
+                                    variableName: "mySlack",
+                                    content: "ðŸš¨ URGENT Ticket:\n{{myGemini.text}}",
+                                }
+                            }
+                        }),
+                        prisma.node.create({
+                            data: {
+                                workflowId: workflow.id,
+                                type: "DISCORD",
+                                name: "DISCORD",
+                                position: { x: 1300, y: 450 },
+                                data: {
+                                    variableName: "myDiscord",
+                                    content: "ðŸ“‹ Normal Ticket:\n{{myGemini.text}}",
+                                }
+                            }
+                        }),
+                    ]);
+
+                    await prisma.connection.createMany({
+                        data: [
+                            { workflowId: workflow.id, fromNodeId: triggerNode.id, toNodeId: aiNode.id, fromOutput: "source-1", toInput: "target-1" },
+                            { workflowId: workflow.id, fromNodeId: aiNode.id, toNodeId: conditionNode.id, fromOutput: "source-1", toInput: "target-1" },
+                            { workflowId: workflow.id, fromNodeId: conditionNode.id, toNodeId: slackNode.id, fromOutput: "true", toInput: "target-1" },
+                            { workflowId: workflow.id, fromNodeId: conditionNode.id, toNodeId: discordNode.id, fromOutput: "false", toInput: "target-1" },
+                        ]
+                    });
+                }
+            } catch (err) {
+                await prisma.workflow.delete({ where: { id: workflow.id } }).catch(() => null);
+                throw err;
+            }
+
+            return { id: workflow.id, demoType: type };
+        }),
+
+    attachDemoCredentials: protectedProcedure
+        .input(z.object({
+            workflowId: z.string(),
+            credentials: z.object({
+                geminiKey: z.string().optional(),
+                discordWebhook: z.string().optional(),
+                slackWebhook: z.string().optional(),
+            }),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            const { workflowId, credentials } = input;
+            const userId = ctx.auth.user.id;
+
+            await prisma.workflow.findUniqueOrThrow({ where: { id: workflowId, userId } });
+
+            const nodes = await prisma.node.findMany({
+                where: { workflowId },
+                select: { id: true, type: true, data: true },
+            });
+
+            // Create the Gemini credential once, encrypting the key before storage
+            // (geminiExecutor calls decrypt(credential.value) â€” so the stored value must be encrypted)
+            let geminiCredId: string | null = null;
+            if (credentials.geminiKey) {
+                const cred = await prisma.credential.create({
+                    data: { name: "Demo Gemini Key", value: encrypt(credentials.geminiKey), type: "GEMINI", userId }
+                });
+                geminiCredId = cred.id;
+            }
+
+            // Update each node â€” writing all values into the data JSON blob
+            // (executors read from node.data, not from the separate node.credentialId column)
+            await Promise.all(nodes.map(async (node) => {
+                const currentData = (node.data as Record<string, unknown>) || {};
+
+                if (node.type === "GEMINI" && geminiCredId) {
+                    await prisma.node.update({
+                        where: { id: node.id },
+                        data: {
+                            credentialId: geminiCredId,
+                            data: { ...currentData, credentialId: geminiCredId },
+                        }
+                    });
+                }
+                if (node.type === "DISCORD" && credentials.discordWebhook) {
+                    await prisma.node.update({
+                        where: { id: node.id },
+                        data: { data: { ...currentData, webhookUrl: credentials.discordWebhook } }
+                    });
+                }
+                if (node.type === "SLACK" && credentials.slackWebhook) {
+                    await prisma.node.update({
+                        where: { id: node.id },
+                        data: { data: { ...currentData, webhookUrl: credentials.slackWebhook } }
+                    });
+                }
+            }));
+
+            // Return updated node data so the client can refresh the canvas
+            const updatedNodes = await prisma.node.findMany({
+                where: { workflowId },
+                select: { id: true, type: true, data: true, credentialId: true },
+            });
+
+            return { success: true, nodes: updatedNodes };
+        }),
+
     remove: protectedProcedure
         .input(z.object({id: z.string()}))
         .mutation(({ctx,input}) => {
@@ -251,6 +478,8 @@ export const workflowsRouter = createTRPCRouter({
                 take: pageSize,
                 where: {
                     userId: ctx.auth.user.id,
+                    // Exclude demo workflows (prefixed with __demo__)
+                    NOT: { name: { startsWith: "__demo__" } },
                     name:{
                         contains:search,
                         mode:"insensitive",
@@ -263,6 +492,7 @@ export const workflowsRouter = createTRPCRouter({
          prisma.workflow.count({
             where: {
                  userId: ctx.auth.user.id,
+                 NOT: { name: { startsWith: "__demo__" } },
                  name:{
                         contains:search,
                         mode:"insensitive",

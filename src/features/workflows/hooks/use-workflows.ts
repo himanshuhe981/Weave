@@ -53,6 +53,33 @@ export const useCreateWorkflow = () => {
 };
 
 /**
+ * Hook to deploy a demo workflow
+ */
+export const useDeployDemo = () => {
+    const queryClient = useQueryClient();
+    const trpc = useTRPC();
+    const router = useRouter();
+
+    return useMutation(
+        trpc.workflows.deployDemo.mutationOptions({
+            onSuccess: (data) => {
+                queryClient.invalidateQueries(
+                    trpc.workflows.getMany.queryOptions({}),
+                );
+                queryClient.invalidateQueries(
+                    trpc.workflows.getUsage.queryOptions(),
+                );
+                // Redirect to editor with ?demo=<type> so the setup panel opens
+                router.push(`/workflows/${data.id}?demo=${data.demoType}`);
+            },
+            onError: (error) => {
+                toast.error(`Failed to deploy demo: ${error.message}`);
+            },
+        }),
+    );
+};
+
+/**
  * Hook to remove a workflow
  */
 

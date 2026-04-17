@@ -20,6 +20,7 @@ import { useHasActiveSubscription } from "@/features/subscriptions/hooks/use-sub
 import { useWorkflowUsage } from "@/features/workflows/hooks/use-workflows"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { startProCheckout } from "@/lib/checkout"
 
 
 const menuItems = [
@@ -145,24 +146,7 @@ export const AppSidebar = () => {
                         <SidebarMenuButton
                         tooltip={"Upgrade to Pro"}
                         className="gap-x-4 h-10 px-4"
-                        onClick={async () => {
-                            const session = await authClient.getSession();
-                            const res = await authClient.checkout({
-                                slug: "pro",
-                                redirect: false
-                            } as any);
-
-                            if (res.data?.url) {
-                                const url = new URL(res.data.url);
-                                if (session.data?.user?.email) {
-                                    url.searchParams.set("customer_email", session.data.user.email);
-                                }
-                                if (session.data?.user?.name) {
-                                    url.searchParams.set("customer_name", session.data.user.name);
-                                }
-                                window.location.href = url.toString();
-                            }
-                        }}
+                        onClick={startProCheckout}
                         >
                             <StarIcon className="h-4 w-4"/>
                             <span>Upgrade to Pro</span>

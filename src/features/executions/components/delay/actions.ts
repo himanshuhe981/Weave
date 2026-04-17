@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { delayChannel } from "@/inngest/channels/delay";
 import { inngest } from "@/inngest/client";
@@ -10,8 +10,8 @@ export type DelayToken = Realtime.Token<
 >;
 
 export async function fetchDelayRealtimeToken(): Promise<DelayToken> {
-  return getSubscriptionToken(inngest, {
+  try { return getSubscriptionToken(inngest, {
     channel: delayChannel(),
     topics: ["status"],
-  });
+  }); } catch { return null as any; }
 }

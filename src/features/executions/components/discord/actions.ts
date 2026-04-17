@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { discordChannel } from "@/inngest/channels/discord";
 import { inngest } from "@/inngest/client"
@@ -12,9 +12,9 @@ export type DiscordToken = Realtime.Token<
 
 export async function fetchDiscordRealtimeToken():
 Promise<DiscordToken> {
-    const token = await getSubscriptionToken(inngest, {
+    try { const token = await getSubscriptionToken(inngest, {
         channel: discordChannel(),
         topics: ["status"]
     });
-    return token;     
+    return token; } catch { return null as any; }     
 };

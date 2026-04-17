@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { httpRequestChannel } from "@/inngest/channels/http-requests"
 import { inngest } from "@/inngest/client"
@@ -12,9 +12,9 @@ export type HttpRequestToken = Realtime.Token<
 
 export async function fetchHttpRequestRealtimeToken():
 Promise<HttpRequestToken> {
-    const token = await getSubscriptionToken(inngest, {
+    try { const token = await getSubscriptionToken(inngest, {
         channel: httpRequestChannel(),
         topics: ["status"]
     });
-    return token;     
+    return token; } catch { return null as any; }     
 };

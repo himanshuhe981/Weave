@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { conditionChannel } from "@/inngest/channels/condition";
 import { inngest } from "@/inngest/client"
@@ -11,9 +11,9 @@ export type ConditionToken = Realtime.Token<
 
 export async function fetchConditionRealtimeToken():
 Promise<ConditionToken> {
-    const token = await getSubscriptionToken(inngest, {
+    try { const token = await getSubscriptionToken(inngest, {
         channel: conditionChannel(),
         topics: ["status"]
     });
-    return token;
+    return token; } catch { return null as any; }
 };
