@@ -24,27 +24,30 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
 
     await inngest.send({
-  name: "workflows/execute.workflow", // ✅ MATCH YOUR FUNCTION
-  data: {
-    workflowId,
-    initialData: {
-      webhook: {
-        body,
-        headers: Object.fromEntries(request.headers.entries()),
-        query: Object.fromEntries(
-          request.nextUrl.searchParams.entries()
-        ),
+      name: "workflows/execute.workflow",
+      data: {
+        workflowId,
+        initialData: {
+          webhook: {
+            body,
+            headers: Object.fromEntries(request.headers.entries()),
+            query: Object.fromEntries(
+              request.nextUrl.searchParams.entries()
+            ),
+          },
+        },
       },
-    },
-  },
-});
+    });
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
+    // Log the real error so it's visible in terminal output
+    console.error("[Webhook Route] Error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Webhook processing failed" },
+      { error: "Webhook processing failed", detail: message },
       { status: 500 }
     );
   }
-}
+}

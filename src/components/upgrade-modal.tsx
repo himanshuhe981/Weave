@@ -13,7 +13,8 @@ import {
 
 } from "@/components/ui/alert-dialog";
 
-import {authClient} from "@/lib/auth-client";
+
+import { startProCheckout } from "@/lib/checkout";
 
 interface UpgradeModalProps {
     open: boolean;
@@ -40,24 +41,7 @@ export const UpgradeModal = ({
                         Cancel
                     </AlertDialogCancel>
                     <AlertDialogAction
-                    onClick={async () => {
-                        const session = await authClient.getSession();
-                        const res = await authClient.checkout({
-                            slug: "pro",
-                            redirect: false
-                        } as any);
-
-                        if (res.data?.url) {
-                            const url = new URL(res.data.url);
-                            if (session.data?.user?.email) {
-                                url.searchParams.set("customer_email", session.data.user.email);
-                            }
-                            if (session.data?.user?.name) {
-                                url.searchParams.set("customer_name", session.data.user.name);
-                            }
-                            window.location.href = url.toString();
-                        }
-                    }}
+                    onClick={startProCheckout}
                     >
                         Upgrade Now
                     </AlertDialogAction>

@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { geminiChannel } from "@/inngest/channels/gemini";
 import { inngest } from "@/inngest/client"
@@ -12,9 +12,9 @@ export type GeminiToken = Realtime.Token<
 
 export async function fetchGeminiRealtimeToken():
 Promise<GeminiToken> {
-    const token = await getSubscriptionToken(inngest, {
+    try { const token = await getSubscriptionToken(inngest, {
         channel: geminiChannel(),
         topics: ["status"]
     });
-    return token;     
+    return token; } catch { return null as any; }     
 };

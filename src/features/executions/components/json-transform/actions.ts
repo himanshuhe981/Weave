@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { jsonTransformChannel } from "@/inngest/channels/json-transform";
 import { inngest } from "@/inngest/client";
@@ -11,10 +11,10 @@ export type JsonTransformToken = Realtime.Token<
 
 export async function fetchJsonTransformRealtimeToken():
   Promise<JsonTransformToken> {
-  const token = await getSubscriptionToken(inngest, {
+  try { const token = await getSubscriptionToken(inngest, {
     channel: jsonTransformChannel(),
     topics: ["status"],
   });
 
-  return token;
+  return token; } catch { return null as any; }
 }

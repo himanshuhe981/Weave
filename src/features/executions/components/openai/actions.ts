@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { openAiChannel } from "@/inngest/channels/openai";
 import { inngest } from "@/inngest/client"
@@ -12,9 +12,9 @@ export type OpenAiToken = Realtime.Token<
 
 export async function fetchOpenAiRealtimeToken():
 Promise<OpenAiToken> {
-    const token = await getSubscriptionToken(inngest, {
+    try { const token = await getSubscriptionToken(inngest, {
         channel: openAiChannel(),
         topics: ["status"],
     });
-    return token;     
+    return token; } catch { return null as any; }     
 };

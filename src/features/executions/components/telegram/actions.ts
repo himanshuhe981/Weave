@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { telegramChannel } from "@/inngest/channels/telegram";
 import { inngest } from "@/inngest/client";
@@ -10,8 +10,8 @@ export type TelegramToken = Realtime.Token<
 >;
 
 export async function fetchTelegramRealtimeToken(): Promise<TelegramToken> {
-  return getSubscriptionToken(inngest, {
+  try { return getSubscriptionToken(inngest, {
     channel: telegramChannel(),
     topics: ["status"],
-  });
+  }); } catch { return null as any; }
 }

@@ -7,6 +7,8 @@ import { SearchParams } from "nuqs/server";
 import { Suspense } from "react";
 import {ErrorBoundary} from "react-error-boundary"
 
+import { DemoWorkflows } from "@/features/workflows/components/demo-workflows";
+
 type Props = {
     searchParams: Promise<SearchParams>;
 }
@@ -23,6 +25,7 @@ const Page = async({ searchParams }: Props) => {
             <HydrateClient>
             <ErrorBoundary fallback={<WorkflowsError/>}>
                 <Suspense fallback={<WorkflowsLoading/>}>
+                    {(!params.page || params.page === 1) && <DemoWorkflows />}
                     <WorkflowsList/>
                 </Suspense>
             </ErrorBoundary>

@@ -41,7 +41,11 @@ export const auth = betterAuth({
                             slug:"pro",
                         }
                     ],
-                    successUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/payment-success` : "http://localhost:3000/payment-success",
+                    successUrl: process.env.NEXT_PUBLIC_APP_URL 
+                        ? `${process.env.NEXT_PUBLIC_APP_URL}/payment-success` 
+                        : process.env.VERCEL_URL 
+                            ? `https://${process.env.VERCEL_URL}/payment-success` 
+                            : "http://localhost:3000/payment-success",
                     authenticatedUsersOnly: true,
                 }),
                 portal(),

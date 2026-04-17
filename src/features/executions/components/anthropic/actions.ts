@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { anthropicChannel } from "@/inngest/channels/anthropic";
 import { inngest } from "@/inngest/client"
@@ -12,9 +12,9 @@ export type AnthropicToken = Realtime.Token<
 
 export async function fetchAnthropicRealtimeToken():
 Promise<AnthropicToken> {
-    const token = await getSubscriptionToken(inngest, {
+    try { const token = await getSubscriptionToken(inngest, {
         channel: anthropicChannel(),
         topics: ["status"],
     });
-    return token;     
+    return token; } catch { return null as any; }     
 };
