@@ -4,6 +4,9 @@ import { decode } from "html-entities"
 import Handlebars from "handlebars";
 import { discordChannel } from "@/inngest/channels/discord";
 import ky from "ky";
+import prisma from "@/lib/db";
+import { decrypt } from "@/lib/encryption";
+
  
 Handlebars.registerHelper("json", (context) => {
     const jsonString = JSON.stringify(context,null,2);
@@ -14,6 +17,7 @@ Handlebars.registerHelper("json", (context) => {
 
 type DiscordData = {
     variableName?: string;
+    credentialId?: string;
     webhookUrl?: string;
     content?: string;
     username?: string;
@@ -23,6 +27,7 @@ export const discordExecutor: NodeExecutor<DiscordData> =
 async ({
     data,
     nodeId,
+    userId,
     context,
     step,
     publish,
@@ -56,18 +61,41 @@ async ({
  
 try {
     const result = await step.run("discord-webhook", async () => {
-          if (!data.webhookUrl){
-        await publish(
-            discordChannel().status({
-                nodeId,
-                status: "error",
-            })
-        );
-        throw new NonRetriableError("Discord node: Webhook URL is required");
-   }
-        await ky.post(data.webhookUrl!,{
+        let targetUrl = data.webhookUrl;
+
+        // Decrypt credential if credentialId is present
+        if (data.credentialId) {
+            const credential = await prisma.credential.findUnique({
+                where: {
+                    id: data.credentialId,
+                    userId,
+                }
+            });
+            if (!credential) {
+                await publish(
+                    discordChannel().status({
+                        nodeId,
+                        status: "error",
+                    })
+                );
+                throw new NonRetriableError("Discord node: Credential not found");
+            }
+            targetUrl = decrypt(credential.value);
+        }
+
+        if (!targetUrl) {
+            await publish(
+                discordChannel().status({
+                    nodeId,
+                    status: "error",
+                })
+            );
+            throw new NonRetriableError("Discord node: Webhook URL or Credential is required");
+        }
+
+        await ky.post(targetUrl, {
             json: {
-                content: content.slice(0,2000), //Discord's max message length
+                content: content.slice(0, 2000), //Discord's max message length
                 username,
             }
         });

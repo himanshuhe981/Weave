@@ -4,6 +4,9 @@ import { decode } from "html-entities"
 import Handlebars from "handlebars";
 import { slackChannel } from "@/inngest/channels/slack";
 import ky from "ky";
+import prisma from "@/lib/db";
+import { decrypt } from "@/lib/encryption";
+
  
 Handlebars.registerHelper("json", (context) => {
     const jsonString = JSON.stringify(context,null,2);
@@ -14,6 +17,7 @@ Handlebars.registerHelper("json", (context) => {
 
 type SlackData = {
     variableName?: string;
+    credentialId?: string;
     webhookUrl?: string;
     content?: string;
 };
@@ -22,6 +26,7 @@ export const slackExecutor: NodeExecutor<SlackData> =
 async ({
     data,
     nodeId,
+    userId,
     context,
     step,
     publish,
@@ -52,16 +57,39 @@ async ({
  
 try {
     const result = await step.run("slack-webhook", async () => {
-          if (!data.webhookUrl){
-        await publish(
-            slackChannel().status({
-                nodeId,
-                status: "error",
-            })
-        );
-        throw new NonRetriableError("Slack node: Webhook URL is required");
-   }
-        await ky.post(data.webhookUrl!,{
+        let targetUrl = data.webhookUrl;
+
+        // Decrypt credential if credentialId is present
+        if (data.credentialId) {
+            const credential = await prisma.credential.findUnique({
+                where: {
+                    id: data.credentialId,
+                    userId,
+                }
+            });
+            if (!credential) {
+                await publish(
+                    slackChannel().status({
+                        nodeId,
+                        status: "error",
+                    })
+                );
+                throw new NonRetriableError("Slack node: Credential not found");
+            }
+            targetUrl = decrypt(credential.value);
+        }
+
+        if (!targetUrl) {
+            await publish(
+                slackChannel().status({
+                    nodeId,
+                    status: "error",
+                })
+            );
+            throw new NonRetriableError("Slack node: Webhook URL or Credential is required");
+        }
+
+        await ky.post(targetUrl, {
             json: {
                 content: content, // The Key depends on workflow config
             },

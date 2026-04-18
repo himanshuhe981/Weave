@@ -113,6 +113,8 @@ enum CredentialType {
   ANTHROPIC
   GEMINI
   TELEGRAM
+  DISCORD
+  SLACK
 }
 
 model Workflow{

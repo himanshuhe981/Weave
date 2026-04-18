@@ -33,9 +33,13 @@ interface Props {
 const CopyButton = ({ text, label }: { text: string; label?: string }) => {
     const [copied, setCopied] = useState(false);
     const handle = async () => {
-        await navigator.clipboard.writeText(text).catch(() => {});
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (error) {
+            toast.error("Failed to copy to clipboard");
+        }
     };
     return (
         <button type="button" onClick={handle}
@@ -148,13 +152,13 @@ const SummarizerFlow = ({ workflowId, onClose }: { workflowId: string; onClose: 
     const geminiNode = workflowData?.nodes.find(n => n.type === "GEMINI");
     const discordNode = workflowData?.nodes.find(n => n.type === "DISCORD");
     const geminiAlreadySaved = !!(geminiNode?.data as Record<string, unknown>)?.credentialId;
-    const discordAlreadySaved = !!(discordNode?.data as Record<string, unknown>)?.webhookUrl;
+    const discordAlreadySaved = !!((discordNode?.data as Record<string, unknown>)?.webhookUrl || (discordNode?.data as Record<string, unknown>)?.credentialId);
 
     // Pre-fill from saved data on load
     useEffect(() => {
         if (discordNode?.data) {
             const d = discordNode.data as Record<string, unknown>;
-            if (d.webhookUrl && !discordWebhook) setDiscordWebhook(d.webhookUrl as string);
+            if (d.webhookUrl && !d.credentialId && !discordWebhook) setDiscordWebhook(d.webhookUrl as string);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workflowData]);
@@ -280,10 +284,10 @@ const SummarizerFlow = ({ workflowId, onClose }: { workflowId: string; onClose: 
                             <p>Trigger it by sending a POST request to the webhook URL below.</p>
                         </Callout>
                     )}
-                    {!done && !(geminiAlreadySaved && discordAlreadySaved) && (
+                    {!done && (!geminiAlreadySaved || !discordAlreadySaved) && (
                         <Callout color="amber">
-                            <p className="font-semibold">Not configured yet</p>
-                            <p>Go back and fill in your Gemini key and Discord webhook, then click <span className="font-semibold">Save Credentials</span>.</p>
+                            <p className="font-semibold">Missing configuration</p>
+                            <p>Go back and fill in your missing credentials, then click <span className="font-semibold">Save Credentials</span>.</p>
                         </Callout>
                     )}
                     <WebhookUrlBlock workflowId={workflowId} />
@@ -327,17 +331,17 @@ const TriageFlow = ({ workflowId, onClose }: { workflowId: string; onClose: () =
     const slackNode = workflowData?.nodes.find(n => n.type === "SLACK");
     const discordNode = workflowData?.nodes.find(n => n.type === "DISCORD");
     const geminiAlreadySaved = !!(geminiNode?.data as Record<string, unknown>)?.credentialId;
-    const slackAlreadySaved = !!(slackNode?.data as Record<string, unknown>)?.webhookUrl;
-    const discordAlreadySaved = !!(discordNode?.data as Record<string, unknown>)?.webhookUrl;
+    const slackAlreadySaved = !!((slackNode?.data as Record<string, unknown>)?.webhookUrl || (slackNode?.data as Record<string, unknown>)?.credentialId);
+    const discordAlreadySaved = !!((discordNode?.data as Record<string, unknown>)?.webhookUrl || (discordNode?.data as Record<string, unknown>)?.credentialId);
 
     useEffect(() => {
         if (slackNode?.data) {
             const d = slackNode.data as Record<string, unknown>;
-            if (d.webhookUrl && !slackWebhook) setSlackWebhook(d.webhookUrl as string);
+            if (d.webhookUrl && !d.credentialId && !slackWebhook) setSlackWebhook(d.webhookUrl as string);
         }
         if (discordNode?.data) {
             const d = discordNode.data as Record<string, unknown>;
-            if (d.webhookUrl && !discordWebhook) setDiscordWebhook(d.webhookUrl as string);
+            if (d.webhookUrl && !d.credentialId && !discordWebhook) setDiscordWebhook(d.webhookUrl as string);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workflowData]);
@@ -487,8 +491,8 @@ const TriageFlow = ({ workflowId, onClose }: { workflowId: string; onClose: () =
                         </Callout>
                     ) : (
                         <Callout color="amber">
-                            <p className="font-semibold">Not fully configured yet</p>
-                            <p>Go back and fill in your Gemini key and webhook URLs, then click <span className="font-semibold">Save Credentials</span>.</p>
+                            <p className="font-semibold">Missing configuration</p>
+                            <p>Go back and fill in your missing credentials, then click <span className="font-semibold">Save Credentials</span>.</p>
                         </Callout>
                     )}
                     <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-2">
@@ -540,7 +544,7 @@ const StepShell = ({ steps, step, setStep, onSave, onClose, isSaving, done, save
     return (
         <div className="flex flex-col h-full overflow-hidden">
             {/* Step tabs */}
-            <div className="flex border-b border-border/60 overflow-x-auto scrollbar-hide shrink-0">
+            <div role="tablist" aria-orientation="horizontal" className="flex border-b border-border/60 overflow-x-auto scrollbar-hide shrink-0">
                 {steps.map((s, i) => {
                     const SIcon = s.icon;
                     const isActive = i === step;
@@ -548,6 +552,10 @@ const StepShell = ({ steps, step, setStep, onSave, onClose, isSaving, done, save
                     return (
                         <button
                             key={i}
+                            role="tab"
+                            aria-selected={isActive}
+                            aria-controls={`panel-${i}`}
+                            id={`tab-${i}`}
                             type="button"
                             onClick={() => setStep(i)}
                             className={cn(
@@ -565,13 +573,14 @@ const StepShell = ({ steps, step, setStep, onSave, onClose, isSaving, done, save
                                 <SIcon className={cn("size-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground/50")} />
                             )}
                             <span className="hidden sm:inline">{s.label}</span>
+                            <span className="sr-only sm:hidden">{s.label}</span>
                         </button>
                     );
                 })}
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-5">
+            <div role="tabpanel" id={`panel-${step}`} aria-labelledby={`tab-${step}`} className="flex-1 overflow-y-auto p-5">
                 <div className="mb-4">
                     <div className="flex items-center gap-2 mb-1">
                         <Icon className="size-4 text-primary" />

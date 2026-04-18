@@ -16,9 +16,14 @@ const checkUserPremium = async (userId: string) => {
             externalId: userId,
         });
         return !!(customer.activeSubscriptions && customer.activeSubscriptions.length > 0);
-    } catch (error) {
+    } catch (error: any) {
+        if (error.status === 404) return false;
         console.error("polar.getStateExternal failed", { userId: userId, error });
-        return false;
+        throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to verify premium status",
+            cause: error
+        });
     }
 };
 
@@ -45,7 +50,10 @@ export const workflowsRouter = createTRPCRouter({
 
     getUsage: protectedProcedure.query(async ({ctx}) => {
         const count = await prisma.workflow.count({
-            where: { userId: ctx.auth.user.id },
+            where: { 
+                userId: ctx.auth.user.id,
+                NOT: { name: { startsWith: "__demo__" } }
+            },
         });
 
         return {
@@ -60,7 +68,10 @@ export const workflowsRouter = createTRPCRouter({
         if (!isPremium) {
             return prisma.$transaction(async (tx) => {
                 const count = await tx.workflow.count({
-                    where: { userId: ctx.auth.user.id },
+                    where: { 
+                        userId: ctx.auth.user.id,
+                        NOT: { name: { startsWith: "__demo__" } }
+                    },
                 });
                 if (count >= 5) {
                     throw new TRPCError({
@@ -111,19 +122,25 @@ export const workflowsRouter = createTRPCRouter({
                 ? "__demo__ AI Summarizer Bot"
                 : "__demo__ Smart Ticket Triage";
 
-            // IDEMPOTENT: return existing demo if user already has one
-            const existing = await prisma.workflow.findFirst({
-                where: { userId, name: demoName },
-                select: { id: true },
-            });
-            if (existing) {
-                return { id: existing.id, demoType: type };
-            }
+            // IDEMPOTENT: create scaffold or return existing in transaction
+            const workflow = await prisma.$transaction(async (tx) => {
+                const existing = await tx.workflow.findFirst({
+                    where: { userId, name: demoName },
+                    select: { id: true },
+                });
+                if (existing) {
+                    return { id: existing.id, isExisting: true };
+                }
 
-            // First time: create the workflow scaffold
-            const workflow = await prisma.workflow.create({
-                data: { name: demoName, userId }
+                const newWorkflow = await tx.workflow.create({
+                    data: { name: demoName, userId }
+                });
+                return { id: newWorkflow.id, isExisting: false };
             });
+
+            if (workflow.isExisting) {
+                return { id: workflow.id, demoType: type };
+            }
 
             try {
                 if (type === "summarizer") {
@@ -143,7 +160,7 @@ export const workflowsRouter = createTRPCRouter({
                                 type: "GEMINI",
                                 name: "GEMINI",
                                 position: { x: 500, y: 200 },
-                                // variableName, credentialId, model, userPrompt â€” all read from data by executor
+                                // variableName, credentialId, model, userPrompt — all read from data by executor
                                 data: {
                                     variableName: "myGemini",
                                     model: "gemini-2.5-flash-lite",
@@ -161,7 +178,7 @@ export const workflowsRouter = createTRPCRouter({
                                 // Discord executor reads: variableName, webhookUrl, content, username
                                 data: {
                                     variableName: "myDiscord",
-                                    content: "ðŸ“‹ Summary:\n{{myGemini.text}}",
+                                    content: "📋 Summary:\n{{myGemini.text}}",
                                 }
                             }
                         }),
@@ -221,7 +238,7 @@ export const workflowsRouter = createTRPCRouter({
                                 // Slack executor reads: variableName, webhookUrl, content
                                 data: {
                                     variableName: "mySlack",
-                                    content: "ðŸš¨ URGENT Ticket:\n{{myGemini.text}}",
+                                    content: "🚨 URGENT Ticket:\n{{myGemini.text}}",
                                 }
                             }
                         }),
@@ -233,7 +250,7 @@ export const workflowsRouter = createTRPCRouter({
                                 position: { x: 1300, y: 450 },
                                 data: {
                                     variableName: "myDiscord",
-                                    content: "ðŸ“‹ Normal Ticket:\n{{myGemini.text}}",
+                                    content: "📋 Normal Ticket:\n{{myGemini.text}}",
                                 }
                             }
                         }),
@@ -276,8 +293,7 @@ export const workflowsRouter = createTRPCRouter({
                 select: { id: true, type: true, data: true },
             });
 
-            // Create the Gemini credential once, encrypting the key before storage
-            // (geminiExecutor calls decrypt(credential.value) â€” so the stored value must be encrypted)
+            // Create credentials for demo keys and webhooks. Encrypt the secret values.
             let geminiCredId: string | null = null;
             if (credentials.geminiKey) {
                 const cred = await prisma.credential.create({
@@ -286,8 +302,26 @@ export const workflowsRouter = createTRPCRouter({
                 geminiCredId = cred.id;
             }
 
-            // Update each node â€” writing all values into the data JSON blob
-            // (executors read from node.data, not from the separate node.credentialId column)
+            let discordCredId: string | null = null;
+            if (credentials.discordWebhook) {
+                const cred = await prisma.credential.create({
+                    // @ts-ignore - added via terminal push
+                    data: { name: "Demo Discord Webhook", value: encrypt(credentials.discordWebhook), type: "DISCORD", userId }
+                });
+                discordCredId = cred.id;
+            }
+
+            let slackCredId: string | null = null;
+            if (credentials.slackWebhook) {
+                const cred = await prisma.credential.create({
+                    // @ts-ignore - added via terminal push
+                    data: { name: "Demo Slack Webhook", value: encrypt(credentials.slackWebhook), type: "SLACK", userId }
+                });
+                slackCredId = cred.id;
+            }
+
+            // Update each node — writing all values into the data JSON blob
+            // (executors read from node.data, including credentialId)
             await Promise.all(nodes.map(async (node) => {
                 const currentData = (node.data as Record<string, unknown>) || {};
 
@@ -300,16 +334,22 @@ export const workflowsRouter = createTRPCRouter({
                         }
                     });
                 }
-                if (node.type === "DISCORD" && credentials.discordWebhook) {
+                if (node.type === "DISCORD" && discordCredId) {
                     await prisma.node.update({
                         where: { id: node.id },
-                        data: { data: { ...currentData, webhookUrl: credentials.discordWebhook } }
+                        data: {
+                            credentialId: discordCredId,
+                            data: { ...currentData, credentialId: discordCredId }
+                        }
                     });
                 }
-                if (node.type === "SLACK" && credentials.slackWebhook) {
+                if (node.type === "SLACK" && slackCredId) {
                     await prisma.node.update({
                         where: { id: node.id },
-                        data: { data: { ...currentData, webhookUrl: credentials.slackWebhook } }
+                        data: {
+                            credentialId: slackCredId,
+                            data: { ...currentData, credentialId: slackCredId }
+                        }
                     });
                 }
             }));
