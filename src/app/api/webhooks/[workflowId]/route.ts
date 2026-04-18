@@ -30,7 +30,16 @@ export async function POST(
         initialData: {
           webhook: {
             body,
-            headers: Object.fromEntries(request.headers.entries()),
+            headers: Object.fromEntries(
+              Array.from(request.headers.entries()).filter(([key]) => {
+                const k = key.toLowerCase();
+                return (
+                  !["authorization", "cookie"].includes(k) &&
+                  !k.includes("api-key") &&
+                  !k.includes("token")
+                );
+              })
+            ),
             query: Object.fromEntries(
               request.nextUrl.searchParams.entries()
             ),
@@ -44,9 +53,8 @@ export async function POST(
   } catch (error) {
     // Log the real error so it's visible in terminal output
     console.error("[Webhook Route] Error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Webhook processing failed", detail: message },
+      { error: "Webhook processing failed", detail: "Internal server error" },
       { status: 500 }
     );
   }

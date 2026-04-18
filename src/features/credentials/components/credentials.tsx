@@ -16,6 +16,8 @@ const CredentialType = {
   ANTHROPIC: 'ANTHROPIC',
   GEMINI: 'GEMINI',
   TELEGRAM: 'TELEGRAM',
+  DISCORD: 'DISCORD',
+  SLACK: 'SLACK',
 } as const;
 
 //-------------------
@@ -132,6 +134,8 @@ const credentialLogos: Record<Credential['type'], string> = {
     [CredentialType.ANTHROPIC] : "/logos/anthropic.svg",
     [CredentialType.GEMINI] : "/logos/gemini.svg",
     [CredentialType.TELEGRAM] : "/logos/telegram.svg",
+    [CredentialType.DISCORD] : "/logos/discord.svg",
+    [CredentialType.SLACK] : "/logos/slack.svg",
 };
 
 export const CredentialItem = ({
