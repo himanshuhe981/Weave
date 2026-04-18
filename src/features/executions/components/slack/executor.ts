@@ -65,6 +65,7 @@ try {
                 where: {
                     id: data.credentialId,
                     userId,
+                    type: "SLACK",
                 }
             });
             if (!credential) {
@@ -76,7 +77,18 @@ try {
                 );
                 throw new NonRetriableError("Slack node: Credential not found");
             }
-            targetUrl = decrypt(credential.value);
+            
+            try {
+                targetUrl = decrypt(credential.value);
+            } catch (err) {
+                await publish(
+                    slackChannel().status({
+                        nodeId,
+                        status: "error",
+                    })
+                );
+                throw new NonRetriableError("Slack node: Credential decryption failed. It may be permanently corrupted or invalid.");
+            }
         }
 
         if (!targetUrl) {

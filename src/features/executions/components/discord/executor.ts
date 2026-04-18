@@ -69,6 +69,7 @@ try {
                 where: {
                     id: data.credentialId,
                     userId,
+                    type: "DISCORD",
                 }
             });
             if (!credential) {
@@ -80,7 +81,18 @@ try {
                 );
                 throw new NonRetriableError("Discord node: Credential not found");
             }
-            targetUrl = decrypt(credential.value);
+            
+            try {
+                targetUrl = decrypt(credential.value);
+            } catch (err) {
+                await publish(
+                    discordChannel().status({
+                        nodeId,
+                        status: "error",
+                    })
+                );
+                throw new NonRetriableError("Discord node: Credential decryption failed. It may be permanently corrupted or invalid.");
+            }
         }
 
         if (!targetUrl) {
