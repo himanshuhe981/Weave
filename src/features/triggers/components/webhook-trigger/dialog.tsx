@@ -1,153 +1,79 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { CopyIcon } from "lucide-react";
+import { NodeDialog, DialogSection, VarChip, CodeBlock, SetupStep, InfoBanner } from "@/components/node-dialog";
 import { useParams } from "next/navigation";
-import { toast } from "sonner";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export const WebhookTriggerDialog = ({
-  open,
-  onOpenChange,
-}: Props) => {
+export const WebhookTriggerDialog = ({ open, onOpenChange }: Props) => {
   const params = useParams();
   const workflowId = params.workflowId as string;
-
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const webhookUrl = `${baseUrl}/api/webhooks/${workflowId}`;
 
-  const curlExample = `curl -X POST ${webhookUrl}
--H "Content-Type: application/json"
--d '{"email":"test@example.com"}'`;
+  const curlExample = `curl -X POST "${webhookUrl}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"name":"Alice","email":"alice@example.com"}'`;
 
-  const copy = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
-    } catch {
-      toast.error("Copy failed");
-    }
-  };
+  const jsExample = `await fetch("${webhookUrl}", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "Alice" }),
+});`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+    <NodeDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon="/logos/webhook.svg"
+      title="Webhook Trigger"
+      subtitle="Starts the workflow when an HTTP POST request is received"
+      badge="Trigger"
+      wide
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* LEFT */}
+        <div className="space-y-4">
+          {/* Endpoint URL */}
+          <DialogSection title="Your Endpoint URL">
+            <CodeBlock code={webhookUrl} copyLabel="URL" />
+            <InfoBanner variant="tip">
+              Save your workflow first — the endpoint won&apos;t accept requests until it&apos;s been saved at least once.
+            </InfoBanner>
+          </DialogSection>
 
-        <DialogHeader className="space-y-1">
-          <DialogTitle className="text-2xl font-semibold">
-            Webhook Trigger
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            Send a POST request to this endpoint to trigger your workflow.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Main Grid */}
-        <div className="mt-6 grid gap-8 md:grid-cols-2">
-
-          {/* LEFT SIDE */}
-          <div className="space-y-6">
-
-            {/* URL */}
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-2">
-                Webhook URL
-              </p>
-
-              <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
-                <span className="font-mono text-sm break-all">
-                  {webhookUrl}
-                </span>
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => copy(webhookUrl, "URL")}
-                >
-                  <CopyIcon className="size-4" />
-                </Button>
-              </div>
+          {/* How it works */}
+          <DialogSection title="How It Works">
+            <div className="space-y-2.5">
+              <SetupStep n={1}>Send an HTTP <strong>POST</strong> request to the URL above from any service, script, or tool.</SetupStep>
+              <SetupStep n={2}>Include a JSON body — all fields become available as template variables in later nodes.</SetupStep>
+              <SetupStep n={3}>The workflow runs immediately and processes the payload.</SetupStep>
             </div>
-
-            {/* How to Use */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">
-                How it works
-              </h3>
-
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>• Send a POST request to the webhook URL</li>
-                <li>• Include JSON in the request body</li>
-                <li>• Workflow runs automatically</li>
-              </ul>
-            </div>
-
-          </div>
-
-          {/* RIGHT SIDE */}
-          <div className="space-y-6">
-
-            {/* Example */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">
-                Example Request
-              </h3>
-
-              <div className="rounded-lg border bg-muted/40 p-4 overflow-x-auto">
-                <pre className="text-sm font-mono whitespace-pre-wrap break-words">
-{curlExample}
-                </pre>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => copy(curlExample, "cURL command")}
-              >
-                Copy cURL
-              </Button>
-            </div>
-
-            {/* Variables */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">
-                Available Variables
-              </h3>
-
-              <div className="space-y-2">
-                <code className="block rounded-md bg-muted/40 px-3 py-2 text-sm">
-                  {"{{webhook.body}}"}
-                </code>
-                <code className="block rounded-md bg-muted/40 px-3 py-2 text-sm">
-                  {"{{webhook.headers}}"}
-                </code>
-                <code className="block rounded-md bg-muted/40 px-3 py-2 text-sm">
-                  {"{{webhook.query}}"}
-                </code>
-                <code className="block rounded-md bg-muted/40 px-3 py-2 text-sm">
-                  {"{{json webhook.body}}"}
-                </code>
-              </div>
-            </div>
-
-          </div>
+          </DialogSection>
         </div>
 
-      </DialogContent>
-    </Dialog>
+        {/* RIGHT */}
+        <div className="space-y-4">
+          {/* Code examples */}
+          <DialogSection title="Request Examples">
+            <CodeBlock code={curlExample} label="cURL" copyLabel="cURL command" />
+            <CodeBlock code={jsExample} label="JavaScript (fetch)" copyLabel="JS snippet" />
+          </DialogSection>
+
+          {/* Variables */}
+          <DialogSection title="Available Variables" hint="click any to copy">
+            <VarChip variable="webhook.body" label="Full request body" description="access nested fields with dot notation" />
+            <VarChip variable="webhook.body.fieldName" label="Specific field" description="e.g. webhook.body.email" />
+            <VarChip variable="webhook.headers" label="All request headers" />
+            <VarChip variable="webhook.query" label="URL query parameters" description="e.g. ?page=2" />
+            <VarChip variable="webhook.method" label="HTTP method used" description="always POST for this trigger" />
+            <VarChip variable="json webhook.body" label="Full body as JSON string" description="for passing to AI prompts" />
+          </DialogSection>
+        </div>
+      </div>
+    </NodeDialog>
   );
 };

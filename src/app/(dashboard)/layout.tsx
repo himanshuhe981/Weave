@@ -7,9 +7,9 @@ import { requireAuth } from "@/lib/auth-utils";
 const Layout = async ({ children }: { children: React.ReactNode }) => {
     await requireAuth();
     return (
-        <SidebarProvider>
+        <SidebarProvider className="h-full">
             <AppSidebar />
-            <SidebarInset>
+            <SidebarInset className="h-full overflow-y-auto">
                 {children}
             </SidebarInset>
         </SidebarProvider>
