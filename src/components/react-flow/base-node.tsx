@@ -1,197 +1,122 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { NodeStatus } from "./node-status-indicator";
-import { CheckCircle2Icon, Loader2Icon, XCircleIcon } from "lucide-react";
+import type { NodeStatus } from "./node-status-indicator";
 
-// 1. Define the props interface exactly like your tutor's code
 interface BaseNodeProps extends HTMLAttributes<HTMLDivElement> {
   status?: NodeStatus;
 }
 
-// 2. Use forwardRef so React Flow can correctly measure and handle the node
+// ─── Corner status dot — minimal, non-intrusive ───────────────────────────────
+const StatusDot = ({ status }: { status: NodeStatus }) => {
+  if (status === "initial") return null;
+  const cfg: Record<string, string> = {
+    loading: "bg-blue-400 animate-pulse",
+    success: "bg-emerald-400",
+    error:   "bg-red-400",
+  };
+  return (
+    <span
+      aria-label={status}
+      className={cn(
+        "absolute bottom-[6px] right-[6px] size-[4px] rounded-full z-20 pointer-events-none",
+        cfg[status] ?? "",
+      )}
+    />
+  );
+};
+
+// ─── BaseNode — 56 × 56 px liquid-glass squircle ─────────────────────────────
+//
+//  Visual identity is IDENTICAL to the sidebar ACRYLIC_ACTIVE constant:
+//    bg-white/20       → almost transparent; canvas shows through
+//    backdrop-blur-2xl → frosted glass
+//    border-white/70   → crisp glass edge
+//    inset 1.5px top   → light catching the sanded top edge
+//    outer lift shadow → panel floating above the canvas
+//
+//  The LEFT and RIGHT edges carry the nail-styled handles (see base-handle.tsx).
+//  There are NO corner nails inside the card — handles ARE the nails.
+//
+//  Hover: glass is ENHANCED (more shadow, slight opacity bump) — never goes flat.
+//  Selected: thin zinc ring added.
 export const BaseNode = forwardRef<HTMLDivElement, BaseNodeProps>(
-  ({ className, status, ...props }, ref) => {
+  ({ className, status = "initial", children, ...props }, ref) => {
+    const statusRing: Record<string, string> = {
+      loading: "ring-[1.5px] ring-inset ring-blue-300/40",
+      success: "ring-[1.5px] ring-inset ring-emerald-300/40",
+      error:   "ring-[1.5px] ring-inset ring-red-300/40",
+      initial: "",
+    };
+
     return (
       <div
-        ref={ref} // Important: Pass the ref to the div
-        className={cn(
-          "bg-card text-card-foreground relative rounded-sm border border-muted-foreground",
-          "hover:bg-accent",
-          className
-        )}
+        ref={ref}
         tabIndex={0}
+        className={cn(
+          // ── Shape ────────────────────────────────────────────────────
+          "relative size-[56px] rounded-[18px] overflow-visible",
+          // ── Exact sidebar ACRYLIC_ACTIVE liquid glass ─────────────
+          "bg-white/20 dark:bg-zinc-800/20",
+          "backdrop-blur-2xl",
+          "border border-white/70 dark:border-zinc-600/50",
+          "shadow-[0_6px_28px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.05),inset_0_1.5px_1px_rgba(255,255,255,0.95),inset_0_-1px_0_rgba(0,0,0,0.04)]",
+          "dark:shadow-[0_6px_28px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]",
+          // ── Status ring ───────────────────────────────────────────
+          statusRing[status] ?? "",
+          // ── Hover: enhance, never flatten ─────────────────────────
+          "transition-all duration-200 cursor-default",
+          // Keep ALL shadow components on hover — add depth, never remove glass
+          "hover:bg-white/28 dark:hover:bg-zinc-800/28",
+          "hover:shadow-[0_10px_36px_rgba(0,0,0,0.10),0_4px_10px_rgba(0,0,0,0.06),inset_0_1.5px_1px_rgba(255,255,255,0.98),inset_0_-1px_0_rgba(0,0,0,0.04)]",
+          "hover:-translate-y-px",
+          // ── Selected: thin zinc ring ──────────────────────────────
+          "[.react-flow__node.selected_&]:ring-[1.5px]",
+          "[.react-flow__node.selected_&]:ring-inset",
+          "[.react-flow__node.selected_&]:ring-zinc-400/50",
+          "[.react-flow__node.selected_&]:shadow-[0_12px_40px_rgba(0,0,0,0.11),inset_0_1.5px_1px_rgba(255,255,255,0.98)]",
+          className,
+        )}
         {...props}
       >
-        {props.children}
-        {status === "error" && (
-          <XCircleIcon className="absolute right-1 bottom-1 size-2 text-red-700 stroke-3"/>
-        )}
-        {status === "success" && (
-          <CheckCircle2Icon className="absolute right-1 bottom-1 size-2 text-green-700 stroke-3"/>
-        )}
-        {status === "loading" && (
-          <Loader2Icon className="absolute right-0.25 bottom-0.25 size-1. text-blue-700 stroke-3 animate-spin"/>
-        )}
+        {children}
+        <StatusDot status={status} />
       </div>
     );
-  }
+  },
 );
 
 BaseNode.displayName = "BaseNode";
 
-// --- The rest of your helper components can stay as they are ---
+// ─── Sub-components (kept for any existing usage) ─────────────────────────────
 
-export function BaseNodeHeader({
-  className,
-  ...props
-}: HTMLAttributes<HTMLElement>) {
+export function BaseNodeHeader({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return (
-    <header
-      {...props}
-      className={cn(
-        "mx-0 my-0 -mb-1 flex flex-row items-center justify-between gap-2 px-3 py-2",
-        className
-      )}
-    />
+    <header {...props} className={cn("flex flex-col items-center justify-center gap-1 p-2", className)} />
   );
 }
 
-export function BaseNodeHeaderTitle({
-  className,
-  ...props
-}: HTMLAttributes<HTMLHeadingElement>) {
+export function BaseNodeHeaderTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
       data-slot="base-node-title"
-      className={cn("user-select-none flex-1 font-semibold", className)}
+      className={cn("text-[9px] font-semibold text-zinc-500 text-center uppercase tracking-widest select-none", className)}
       {...props}
     />
   );
 }
 
-export function BaseNodeContent({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
+export function BaseNodeContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      data-slot="base-node-content"
-      className={cn("flex flex-col gap-y-2 p-3", className)}
-      {...props}
-    />
+    <div data-slot="base-node-content" className={cn("flex flex-col items-center gap-1 p-2", className)} {...props} />
   );
 }
 
-export function BaseNodeFooter({ 
-    className, 
-    ...props 
-}: HTMLAttributes<HTMLDivElement>) {
+export function BaseNodeFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       data-slot="base-node-footer"
-      className={cn(
-        "flex flex-col items-center gap-y-2 border-t px-3 pt-2 pb-3",
-        className
-      )}
+      className={cn("flex flex-col items-center gap-1 border-t border-white/40 dark:border-zinc-700/40 px-2 pt-1.5 pb-2", className)}
       {...props}
     />
   );
 }
-
-
-// ------------ original react flow componenets-------------------
-
-// import type { ComponentProps } from "react";
-
-// import { cn } from "@/lib/utils";
-// import { NodeStatus } from "./node-status-indicator";
-
-// interface BaseNodeProps extends
-// HTMLAttributes<HTMLDivElement>{
-//   status?: NodeStatus;
-// }
-
-// export function BaseNode({ className, ...props }: ComponentProps<"div">) {
-//   return (
-//     <div
-//       className={cn(
-//         "bg-card text-card-foreground relative rounded-md border",
-//         "hover:ring-1",
-//         // React Flow displays node elements inside of a `NodeWrapper` component,
-//         // which compiles down to a div with the class `react-flow__node`.
-//         // When a node is selected, the class `selected` is added to the
-//         // `react-flow__node` element. This allows us to style the node when it
-//         // is selected, using Tailwind's `&` selector.
-//         "[.react-flow\\_\\_node.selected_&]:border-muted-foreground",
-//         "[.react-flow\\_\\_node.selected_&]:shadow-lg",
-//         className,
-//       )}
-//       tabIndex={0}
-//       {...props}
-//     />
-//   );
-// }
-
-// /**
-//  * A container for a consistent header layout intended to be used inside the
-//  * `<BaseNode />` component.
-//  */
-// export function BaseNodeHeader({
-//   className,
-//   ...props
-// }: ComponentProps<"header">) {
-//   return (
-//     <header
-//       {...props}
-//       className={cn(
-//         "mx-0 my-0 -mb-1 flex flex-row items-center justify-between gap-2 px-3 py-2",
-//         // Remove or modify these classes if you modify the padding in the
-//         // `<BaseNode />` component.
-//         className,
-//       )}
-//     />
-//   );
-// }
-
-// /**
-//  * The title text for the node. To maintain a native application feel, the title
-//  * text is not selectable.
-//  */
-// export function BaseNodeHeaderTitle({
-//   className,
-//   ...props
-// }: ComponentProps<"h3">) {
-//   return (
-//     <h3
-//       data-slot="base-node-title"
-//       className={cn("user-select-none flex-1 font-semibold", className)}
-//       {...props}
-//     />
-//   );
-// }
-
-// export function BaseNodeContent({
-//   className,
-//   ...props
-// }: ComponentProps<"div">) {
-//   return (
-//     <div
-//       data-slot="base-node-content"
-//       className={cn("flex flex-col gap-y-2 p-3", className)}
-//       {...props}
-//     />
-//   );
-// }
-
-// export function BaseNodeFooter({ className, ...props }: ComponentProps<"div">) {
-//   return (
-//     <div
-//       data-slot="base-node-footer"
-//       className={cn(
-//         "flex flex-col items-center gap-y-2 border-t px-3 pt-2 pb-3",
-//         className,
-//       )}
-//       {...props}
-//     />
-//   );
-// }

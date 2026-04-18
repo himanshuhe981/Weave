@@ -1,161 +1,142 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
+import { NodeDialog, DialogSection, VarChip, FieldRow, MONO_INPUT_CLS, InfoBanner, CodeBlock } from "@/components/node-dialog";
+import { Switch } from "@/components/ui/switch";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import * as z from "zod";
-import { Switch } from "@/components/ui/switch";
+import { BracesIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
-  variableName: z
-    .string()
-    .min(1)
-    .regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/),
-  template: z.string().min(1, "Transformation template is required"),
-  strict: z.boolean(),
+    variableName: z.string().min(1, "Variable name is required").regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/),
+    template: z.string().min(1, "Transformation template is required"),
+    strict: z.boolean(),
 });
 
 export type JsonTransformFormValues = z.infer<typeof formSchema>;
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (values: JsonTransformFormValues) => void;
-  defaultValues?: Partial<JsonTransformFormValues>;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (values: JsonTransformFormValues) => void;
+    defaultValues?: Partial<JsonTransformFormValues>;
 }
 
-export const JsonTransformDialog = ({
-  open,
-  onOpenChange,
-  onSubmit,
-  defaultValues = {},
-}: Props) => {
-  const form = useForm<JsonTransformFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      variableName: defaultValues.variableName || "",
-      template: defaultValues.template || "",
-      strict: defaultValues.strict ?? true,
-    },
-  });
+const EXAMPLE_TEMPLATE = `{
+  "id": "{{webhook.body.userId}}",
+  "displayName": "{{webhook.body.firstName}} {{webhook.body.lastName}}",
+  "summary": "{{myGemini.text}}",
+  "tags": {{json webhook.body.tags}},
+  "processedAt": "{{schedule.timestamp}}"
+}`;
 
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        variableName: defaultValues.variableName || "",
-        template: defaultValues.template || "",
-        strict: defaultValues.strict ?? true,
-      });
-    }
-  }, [open, defaultValues, form]);
+export const JsonTransformDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+    const { register, control, watch, handleSubmit, reset, formState: { errors } } = useForm<JsonTransformFormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            variableName: defaultValues.variableName || "",
+            template: defaultValues.template || "",
+            strict: defaultValues.strict ?? true,
+        },
+    });
 
-  const watchVariable = form.watch("variableName") || "myTransform";
+    useEffect(() => {
+        if (open) reset({
+            variableName: defaultValues.variableName || "",
+            template: defaultValues.template || "",
+            strict: defaultValues.strict ?? true,
+        });
+    }, [open, defaultValues, reset]);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-full">
-        <DialogHeader>
-          <DialogTitle>JSON Transform</DialogTitle>
-          <DialogDescription>
-            Transform context data using Handlebars templates.
-          </DialogDescription>
-        </DialogHeader>
+    const varName = watch("variableName") || "myTransform";
+    const strict  = watch("strict");
 
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit((values) => {
-              onSubmit(values);
-              onOpenChange(false);
-            })}
-            className="space-y-6"
-          >
-            <FormField
-              control={form.control}
-              name="variableName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Variable Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="transformedData" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Accessible as: {`{{${watchVariable}}}`}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    return (
+        <NodeDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            icon={BracesIcon}
+            title="JSON Transform"
+            subtitle="Reshape, combine, and restructure data from previous nodes using Handlebars templates"
+            badge="Logic"
+            formId="json-transform-form"
+            wide
+        >
+            <form id="json-transform-form" onSubmit={handleSubmit(v => { onSubmit(v); onOpenChange(false); })} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {/* LEFT */}
+                    <div className="space-y-4">
+                        <DialogSection title="Configuration">
+                            <FieldRow label="Output variable name" required error={errors.variableName?.message}>
+                                <input {...register("variableName")} className={MONO_INPUT_CLS} placeholder="transformedData" />
+                            </FieldRow>
 
-            <FormField
-              control={form.control}
-              name="template"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Transformation Template</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      className="min-h-[200px] font-mono text-sm"
-                      placeholder={`{
-  "name": "{{user.name}}",
-  "email": "{{user.email}}"
-}`}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Use {"{{variables}}"} or {"{{json object}}"}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-  control={form.control}
-  name="strict"
-  render={({ field }) => (
-    <FormItem className="flex items-center justify-between rounded-lg border p-4">
-      <div className="space-y-0.5">
-        <FormLabel>Strict Mode</FormLabel>
-        <FormDescription>
-          Fail execution if a variable is missing.
-        </FormDescription>
-      </div>
-      <FormControl>
-        <Switch
-          checked={field.value}
-          onCheckedChange={field.onChange}
-        />
-      </FormControl>
-    </FormItem>
-  )}
-/>
+                            <div className="space-y-1">
+                                <p className="text-[10px] text-zinc-400">Access the result downstream:</p>
+                                <VarChip variable={varName} label="The entire transformed object" />
+                                <VarChip variable={`${varName}.fieldName`} label="A specific field from the output" />
+                                <VarChip variable={`json ${varName}`} label="Output as JSON string" description="for AI prompts" />
+                            </div>
+                        </DialogSection>
 
-            <DialogFooter>
-              <Button type="submit">Save</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
+                        <DialogSection title="Options">
+                            <div className="flex items-center justify-between px-1">
+                                <div>
+                                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Strict mode</p>
+                                    <p className="text-[10px] text-zinc-400 mt-0.5">
+                                        {strict
+                                            ? "Execution fails if a referenced variable is missing"
+                                            : "Missing variables render as empty strings (silent failure)"}
+                                    </p>
+                                </div>
+                                <Controller
+                                    control={control}
+                                    name="strict"
+                                    render={({ field }) => (
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    )}
+                                />
+                            </div>
+                        </DialogSection>
+
+                        <DialogSection title="Handlebars Reference">
+                            <div className="space-y-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                <p><code className="font-mono text-zinc-700 dark:text-zinc-300">{"{{variable.path}}"}</code> — insert a value</p>
+                                <p><code className="font-mono text-zinc-700 dark:text-zinc-300">{"{{json variable}}"}</code> — stringify an object</p>
+                                <p><code className="font-mono text-zinc-700 dark:text-zinc-300">{"{{#if cond}}…{{/if}}"}</code> — conditional</p>
+                                <p><code className="font-mono text-zinc-700 dark:text-zinc-300">{"{{#each arr}}…{{/each}}"}</code> — iterate array</p>
+                            </div>
+                        </DialogSection>
+                    </div>
+
+                    {/* RIGHT */}
+                    <div className="space-y-4">
+                        <DialogSection title="Transformation Template" hint="Handlebars syntax">
+                            <FieldRow label="Template" required error={errors.template?.message}>
+                                <textarea
+                                    {...register("template")}
+                                    rows={10}
+                                    className={cn(MONO_INPUT_CLS, "min-h-[160px]")}
+                                    placeholder={EXAMPLE_TEMPLATE}
+                                />
+                            </FieldRow>
+                            <InfoBanner variant="tip">
+                                The template must produce valid JSON. Use <code className="font-mono text-[10px]">{"{{json obj}}"}</code> to embed nested objects or arrays correctly.
+                            </InfoBanner>
+                        </DialogSection>
+
+                        <DialogSection title="Example Template">
+                            <CodeBlock
+                                code={EXAMPLE_TEMPLATE}
+                                label="Click to see a working example"
+                                copyLabel="Example template"
+                            />
+                        </DialogSection>
+                    </div>
+                </div>
+            </form>
+        </NodeDialog>
+    );
 };

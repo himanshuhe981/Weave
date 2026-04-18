@@ -1,48 +1,18 @@
 "use client";
 
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import z from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { NodeDialog, DialogSection, VarChip, FieldRow, INPUT_CLS, MONO_INPUT_CLS, InfoBanner, SetupStep } from "@/components/node-dialog";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-
-
-
-
+import z from "zod";
 
 const formSchema = z.object({
-
-    variableName: z
-        .string()
-        .min(1, {message: "Variable name is required"})
-        .regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/, {
-            message: "Varible name must start with a letter or underscore and contain only letters, numbers, and underscores",
-        }),
-        username: z.string().optional(),
-        content: z
-            .string()
-            .min(1,"Message content is required")
-            .max(2000,"Discord messages cannot exceed 2000 characters "),
-        webhookUrl: z.string().min(11, "Webhook URL is required")
+    variableName: z.string().min(1, "Variable name is required").regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/, {
+        message: "Must start with a letter or underscore",
+    }),
+    webhookUrl: z.string().min(11, "Discord webhook URL is required"),
+    content: z.string().min(1, "Message content is required").max(2000, "Discord messages cannot exceed 2000 characters"),
+    username: z.string().optional(),
 });
 
 export type DiscordFormValues = z.infer<typeof formSchema>;
@@ -50,156 +20,108 @@ export type DiscordFormValues = z.infer<typeof formSchema>;
 interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (values: z.infer<typeof formSchema>) => void;
+    onSubmit: (values: DiscordFormValues) => void;
     defaultValues?: Partial<DiscordFormValues>;
-};
+}
 
-export const DiscordDialog = ({
-    open,
-    onOpenChange,
-    onSubmit,
-    defaultValues = {},
-
-} : Props ) => {
-
-    
-
-    const form = useForm<z.infer<typeof formSchema>>({
+export const DiscordDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+    const { register, watch, handleSubmit, reset, formState: { errors } } = useForm<DiscordFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             variableName: defaultValues.variableName || "",
-            username: defaultValues.username || "",
-            content: defaultValues.content || "",
             webhookUrl: defaultValues.webhookUrl || "",
+            content: defaultValues.content || "",
+            username: defaultValues.username || "",
         },
     });
 
-    // Reset form values when dialog opens with new defaults
-
     useEffect(() => {
-        if(open){
-            form.reset({
-                variableName: defaultValues.variableName || "",
-                username: defaultValues.username || "",
-                content: defaultValues.content || "",
-                webhookUrl: defaultValues.webhookUrl || "",
-            });
-        }
-    },[open, defaultValues,form]);
+        if (open) reset({
+            variableName: defaultValues.variableName || "",
+            webhookUrl: defaultValues.webhookUrl || "",
+            content: defaultValues.content || "",
+            username: defaultValues.username || "",
+        });
+    }, [open, defaultValues, reset]);
 
-    const watchVariableName = form.watch("variableName") || "myDiscord";
-    
-
-    const handleSubmit = (values: z.infer<typeof formSchema>) => {
-        onSubmit(values);
-        onOpenChange(false);
-    }
+    const varName = watch("variableName") || "myDiscord";
+    const content = watch("content") || "";
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Discord Configuration</DialogTitle>
-                    <DialogDescription>
-                        Configure the Discord webhook settings for this node.
-                    </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)}
-                    className="space-y-8 mt-4"
-                    >
-                        <FormField
-                            control={form.control}
-                            name="variableName"
-                            render = {({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Variable Name</FormLabel>
-                                    <FormControl>
-                                       <Input
-                                        placeholder="myDiscord"
-                                        {...field}
-                                    />
-                                    </FormControl>
-                                   
-                                   <FormDescription>
-                                        Use this name to reference the result in other nodes:{" "}
-                                        {`{{${watchVariableName}.text}}`}
-                                    </FormDescription>
-                                   <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
+        <NodeDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            icon="/logos/discord.svg"
+            title="Discord"
+            subtitle="Send a message to a Discord channel via webhook"
+            badge="Action"
+            formId="discord-form"
+            wide
+        >
+            <form id="discord-form" onSubmit={handleSubmit(v => { onSubmit(v); onOpenChange(false); })} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {/* LEFT */}
+                    <div className="space-y-4">
+                        <DialogSection title="Configuration">
+                            <FieldRow label="Output variable name" required error={errors.variableName?.message}
+                                hint="letters, numbers, underscores">
+                                <input {...register("variableName")} className={MONO_INPUT_CLS} placeholder="myDiscord" />
+                            </FieldRow>
 
-                        <FormField
-                            name="webhookUrl"
-                            control={form.control}
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Webhook URL</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                       placeholder="https://discord.com/api/webhooks/..."
-                                       {...field}
-                                    />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Get this from Discord: Channel Settings → Integrations → Webhooks
-                                    </FormDescription>
-                                    <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
-                        
-                            <FormField
-                                control={form.control}
-                                name="content"
-                                render = {({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Message Content</FormLabel>
-                                        <FormControl>
-                                        <Textarea
-                                            placeholder="Summary: {{myGemini.text}}"
-                                            className="min-h-[80px] font-mono text-sm"
-                                            {...field}
-                                        />
-                                        </FormControl>
-                                    
-                                    <FormDescription>
-                                           The messgae to send. Use {"{{variables}}"} for
-                                            simple values or {"{{json variable}}"} to 
-                                            stringify objects
-                                        </FormDescription>
-                                    <FormMessage/>
-                                    </FormItem>
-                            )}
-                            />
-                            <FormField
-                            name="username"
-                            control={form.control}
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Bot Username (Optional)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                       placeholder="Workflow Bot"
-                                       {...field}
-                                    />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Override the webhook's default username 
-                                    </FormDescription>
-                                    <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
-                        
-                        <DialogFooter className="mt-4">
-                            <Button type="submit">Save</Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-                
-            </DialogContent>
-        </Dialog>
-    )
-}
+                            <FieldRow label="Webhook URL" required error={errors.webhookUrl?.message}>
+                                <input
+                                    {...register("webhookUrl")}
+                                    className={INPUT_CLS}
+                                    placeholder="https://discord.com/api/webhooks/..."
+                                    type="url"
+                                />
+                                <p className="text-[10px] text-zinc-400 mt-1">
+                                    In Discord: <strong>Channel Settings → Integrations → Webhooks → New Webhook</strong>
+                                </p>
+                            </FieldRow>
+
+                            <FieldRow label="Bot username" hint="optional — overrides default webhook name">
+                                <input {...register("username")} className={INPUT_CLS} placeholder="Weave Bot" />
+                            </FieldRow>
+                        </DialogSection>
+
+                        <DialogSection title="How to Get a Webhook URL">
+                            <div className="space-y-2">
+                                <SetupStep n={1}>Open Discord and go to your server.</SetupStep>
+                                <SetupStep n={2}>Right-click the channel → <strong>Edit Channel</strong>.</SetupStep>
+                                <SetupStep n={3}>Click <strong>Integrations → Webhooks → New Webhook</strong>.</SetupStep>
+                                <SetupStep n={4}>Copy the webhook URL and paste it above.</SetupStep>
+                            </div>
+                        </DialogSection>
+                    </div>
+
+                    {/* RIGHT */}
+                    <div className="space-y-4">
+                        <DialogSection title="Message Content">
+                            <FieldRow label="Message" required error={errors.content?.message}>
+                                <textarea
+                                    {...register("content")}
+                                    rows={6}
+                                    className={MONO_INPUT_CLS}
+                                    placeholder={"✅ New signup!\n\nName: {{webhook.body.name}}\nEmail: {{webhook.body.email}}\n\nAI Summary: {{myGemini.text}}"}
+                                />
+                                <p className={`text-[10px] mt-1 ${content.length > 1900 ? "text-red-400" : "text-zinc-400"}`}>
+                                    {content.length}/2000 characters
+                                </p>
+                            </FieldRow>
+                            <InfoBanner variant="tip">
+                                Use <code className="font-mono text-[10px]">{"{{variableName.text}}"}</code> for AI output, <code className="font-mono text-[10px]">{"{{webhook.body.field}}"}</code> for trigger data. Discord supports **bold**, *italic*, and `code` formatting.
+                            </InfoBanner>
+                        </DialogSection>
+
+                        <DialogSection title="Output Variables" hint="click to copy">
+                            <VarChip variable={`${varName}.id`} label="Discord message ID" description="for editing/deleting later" />
+                            <VarChip variable={`${varName}.channelId`} label="Channel the message was sent to" />
+                            <VarChip variable={`${varName}.timestamp`} label="When the message was sent" />
+                        </DialogSection>
+                    </div>
+                </div>
+            </form>
+        </NodeDialog>
+    );
+};

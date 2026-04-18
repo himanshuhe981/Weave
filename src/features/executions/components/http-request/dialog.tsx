@@ -1,46 +1,31 @@
 "use client";
 
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import z from "zod";
+import { NodeDialog, DialogSection, VarChip, FieldRow, INPUT_CLS, MONO_INPUT_CLS, InfoBanner } from "@/components/node-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
 import { useEffect } from "react";
-import { Select, SelectContent, SelectItem } from "@/components/ui/select";
-import { SelectTrigger, SelectValue } from "@radix-ui/react-select";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import z from "zod";
+import { GlobeIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+
+const METHOD_COLORS: Record<string, string> = {
+    GET:    "text-emerald-600 dark:text-emerald-400",
+    POST:   "text-blue-600   dark:text-blue-400",
+    PUT:    "text-amber-600  dark:text-amber-400",
+    PATCH:  "text-purple-600 dark:text-purple-400",
+    DELETE: "text-red-600    dark:text-red-400",
+};
 
 const formSchema = z.object({
-
-    variableName: z
-        .string()
-        .min(1, {message: "Variable name is required"})
-        .regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/, {
-            message: "Varible name must start with a letter or underscore and contain only letters, numbers, and underscores",
-        }),  
-    endpoint: z.string()
-    .min(1,{ message: "Please enter a valid URL"}),
-    method: z.enum(["GET","POST","PUT","PATCH","DELETE"]),
-    body: z
-        .string()
-        .optional()
+    variableName: z.string().min(1, "Variable name is required").regex(/^[A-Za-z_$][A-Za-z0-9_$]*$/, {
+        message: "Must start with a letter or underscore",
+    }),
+    method: z.enum(METHODS),
+    endpoint: z.string().min(1, "Endpoint URL is required"),
+    body: z.string().optional(),
 });
 
 export type HttpRequestFormValues = z.infer<typeof formSchema>;
@@ -48,170 +33,130 @@ export type HttpRequestFormValues = z.infer<typeof formSchema>;
 interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (values: z.infer<typeof formSchema>) => void;
+    onSubmit: (values: HttpRequestFormValues) => void;
     defaultValues?: Partial<HttpRequestFormValues>;
-};
+}
 
-export const HttpRequestDialog = ({
-    open,
-    onOpenChange,
-    onSubmit,
-    defaultValues = {},
-
-} : Props ) => {
-    const form = useForm<z.infer<typeof formSchema>>({
+export const HttpRequestDialog = ({ open, onOpenChange, onSubmit, defaultValues = {} }: Props) => {
+    const { register, control, watch, handleSubmit, reset, formState: { errors } } = useForm<HttpRequestFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             variableName: defaultValues.variableName || "",
-            endpoint: defaultValues.endpoint || "",
             method: defaultValues.method || "GET",
+            endpoint: defaultValues.endpoint || "",
             body: defaultValues.body || "",
         },
     });
 
-    // Reset form values when dialog opens with new defaults
-
     useEffect(() => {
-        if(open){
-            form.reset({
-                variableName: defaultValues.variableName || "",
-                 endpoint: defaultValues.endpoint || "",
-                 method: defaultValues.method || "GET",
-                 body: defaultValues.body || "",
-            });
-        }
-    },[open, defaultValues,form]);
+        if (open) reset({
+            variableName: defaultValues.variableName || "",
+            method: defaultValues.method || "GET",
+            endpoint: defaultValues.endpoint || "",
+            body: defaultValues.body || "",
+        });
+    }, [open, defaultValues, reset]);
 
-    const watchVariableName = form.watch("variableName") || "myApiCall";
-    const watchMethod = form.watch("method");
-    const showBodyField = ["POST","PUT","PATCH"].includes
-    (watchMethod);
-
-    const handleSubmit = (values: z.infer<typeof formSchema>) => {
-        onSubmit(values);
-        onOpenChange(false);
-    }
+    const varName       = watch("variableName") || "myApiCall";
+    const method        = watch("method");
+    const showBody      = ["POST", "PUT", "PATCH"].includes(method);
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Http Request Trigger</DialogTitle>
-                    <DialogDescription>Configure Settings for the Http Request Node node </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)}
-                    className="space-y-8 mt-4"
-                    >
-                        <FormField
-                            control={form.control}
-                            name="variableName"
-                            render = {({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Variable Name</FormLabel>
-                                    <FormControl>
-                                       <Input
-                                        placeholder="myApiCall"
-                                        {...field}
-                                    />
-                                    </FormControl>
-                                   
-                                   <FormDescription>
-                                        Use this name to reference the result in other nodes:{" "}
-                                        {`{{${watchVariableName}.httpResponse.data}}`}
-                                    </FormDescription>
-                                   <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
+        <NodeDialog
+            open={open}
+            onOpenChange={onOpenChange}
+            icon={GlobeIcon}
+            title="HTTP Request"
+            subtitle="Call any external API and use the response in downstream nodes"
+            badge="Action"
+            formId="http-form"
+            wide
+        >
+            <form id="http-form" onSubmit={handleSubmit(v => { onSubmit(v); onOpenChange(false); })} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {/* LEFT */}
+                    <div className="space-y-4">
+                        <DialogSection title="Request">
+                            <FieldRow label="Output variable name" required error={errors.variableName?.message}>
+                                <input {...register("variableName")} className={MONO_INPUT_CLS} placeholder="myApiCall" />
+                            </FieldRow>
 
-                        <FormField
-                            control={form.control}
-                            name="method"
-                            render = {({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Method</FormLabel>
-                                   <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
-                                   >
-                                    <FormControl>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select a method"/>
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="GET">GET</SelectItem>
-                                        <SelectItem value="POST">POST</SelectItem>
-                                        <SelectItem value="DELETE">DELETE</SelectItem>
-                                        <SelectItem value="PUT">PUT</SelectItem>
-                                        <SelectItem value="PATCH">PATCH</SelectItem>
-                                    </SelectContent>
-                                   </Select>
-                                   <FormDescription>
-                                    The HTTP method to use for this request
-                                   </FormDescription>
-                                   <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="endpoint"
-                            render = {({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Endpoint URL</FormLabel>
-                                    <FormControl>
-                                       <Input
-                                        placeholder="https://api.example.com/users/{{httpResponse.data.id}}"
-                                        {...field}
+                            <FieldRow label="Method & URL" required error={errors.endpoint?.message}>
+                                <div className="flex gap-2">
+                                    <Controller
+                                        control={control}
+                                        name="method"
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <SelectTrigger className="w-[110px] shrink-0 font-mono text-sm font-bold">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {METHODS.map(m => (
+                                                        <SelectItem key={m} value={m}>
+                                                            <span className={cn("font-bold font-mono text-sm", METHOD_COLORS[m])}>{m}</span>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
                                     />
-                                    </FormControl>
-                                   
-                                   <FormDescription>
-                                        Static URL or use {"{{variables}}"} for
-                                        simple values or {"{{json variable}}"} to 
-                                        stringify objects
-                                    </FormDescription>
-                                   <FormMessage/>
-                                </FormItem>
-                            )}
-                        />
-                        {showBodyField && (
-                            <FormField
-                                control={form.control}
-                                name="body"
-                                render = {({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Request Body</FormLabel>
-                                        <FormControl>
-                                        <Textarea
-                                            placeholder={
-                                                '{\n "userId": "{{httpResponse.data.id}}",\n "name": "{{httpResponse.data.name}}",\n "items": "{{httpResponse.data.items}}"\n}'
-                                            }
-                                            className="min-h-[120px] font-mono text-sm"
-                                            {...field}
-                                        />
-                                        </FormControl>
-                                    
-                                    <FormDescription>
-                                           JSON with template variables. Use {"{{variables}}"} for
-                                            simple values or {"{{json variable}}"} to 
-                                            stringify objects
-                                        </FormDescription>
-                                    <FormMessage/>
-                                    </FormItem>
-                            )}
-                            />
-                            
+                                    <input
+                                        {...register("endpoint")}
+                                        className={cn(INPUT_CLS, "flex-1")}
+                                        placeholder="https://api.example.com/data"
+                                    />
+                                </div>
+                            </FieldRow>
+
+                            <p className="text-[10px] text-zinc-400">
+                                The URL supports <code className="font-mono">{"{{variables}}"}</code> — e.g. <code className="font-mono">{"https://api.example.com/users/{{webhook.body.id}}"}</code>
+                            </p>
+                        </DialogSection>
+
+                        {showBody && (
+                            <DialogSection title="Request Body" hint="JSON (POST/PUT/PATCH only)">
+                                <FieldRow label="Body">
+                                    <textarea
+                                        {...register("body")}
+                                        rows={6}
+                                        className={MONO_INPUT_CLS}
+                                        placeholder={'{\n  "userId": "{{webhook.body.id}}",\n  "summary": "{{myGemini.text}}"\n}'}
+                                    />
+                                </FieldRow>
+                                <InfoBanner variant="tip">
+                                    Use <code className="font-mono text-[10px]">{"{{json variableName}}"}</code> to embed a full object as a valid JSON value in the body.
+                                </InfoBanner>
+                            </DialogSection>
                         )}
-                        <DialogFooter className="mt-4">
-                            <Button type="submit">Save</Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-                
-            </DialogContent>
-        </Dialog>
-    )
-}
+                    </div>
+
+                    {/* RIGHT */}
+                    <div className="space-y-4">
+                        <DialogSection title="Output Variables" hint="click to copy">
+                            <VarChip variable={`${varName}.body`} label="Full response body (parsed JSON or text)" />
+                            <VarChip variable={`${varName}.body.fieldName`} label="Specific field from response JSON" description='e.g. myApiCall.body.id' />
+                            <VarChip variable={`${varName}.status`} label="HTTP status code" description="200, 201, 404, 500…" />
+                            <VarChip variable={`${varName}.ok`} label="true if status 200–299" />
+                            <VarChip variable={`${varName}.headers`} label="Response headers" />
+                            <VarChip variable={`json ${varName}.body`} label="Full body as JSON string" description="for AI prompts" />
+                        </DialogSection>
+
+                        <DialogSection title="Common Patterns">
+                            <div className="space-y-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                <p>• <strong>Fetch user data:</strong> GET then reference <code className="font-mono">{"{{myApiCall.body.name}}"}</code></p>
+                                <p>• <strong>Create record:</strong> POST with body, check <code className="font-mono">{"{{myApiCall.ok}}"}</code></p>
+                                <p>• <strong>Chain requests:</strong> Use output of one HTTP node as input to the next URL</p>
+                                <p>• <strong>Auth headers:</strong> Add <code className="font-mono">Authorization: Bearer {"{{credential.token}}"}</code> (coming soon — use hardcoded for now)</p>
+                            </div>
+                        </DialogSection>
+
+                        <InfoBanner variant="warning">
+                            The response body is automatically parsed as JSON when the <code className="font-mono text-[10px]">Content-Type</code> is <code className="font-mono text-[10px]">application/json</code>. Otherwise it&apos;s a raw string.
+                        </InfoBanner>
+                    </div>
+                </div>
+            </form>
+        </NodeDialog>
+    );
+};
