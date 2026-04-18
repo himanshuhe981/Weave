@@ -1,45 +1,25 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Bot, Briefcase, Zap, Loader2, ArrowRight, GitBranch, Webhook } from "lucide-react";
+import { Bot, GitBranch, Loader2, ArrowRight, Zap } from "lucide-react";
 import { useDeployDemo } from "../hooks/use-workflows";
 
 const DEMOS = [
     {
         id: "summarizer" as const,
         title: "AI Summarizer Bot",
-        subtitle: "Webhook → Gemini → Discord",
-        description:
-            "Listens for any payload via a webhook, summarizes the content using Gemini AI, and posts a clean bullet-point summary to a Discord channel.",
+        badge: "Beginner",
         icon: Bot,
         nodes: ["Webhook Trigger", "Gemini AI", "Discord"],
-        accentFrom: "from-blue-500/10",
-        accentTo: "to-violet-500/10",
-        iconBg: "bg-blue-500/10",
-        iconColor: "text-blue-600",
-        buttonBg: "bg-blue-500/5 hover:bg-blue-500/15 border-blue-500/20 text-blue-700 dark:text-blue-400",
-        pillColor: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
-        badge: "Beginner",
-        badgeColor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
     },
     {
         id: "triage" as const,
         title: "Smart Ticket Triage",
-        subtitle: "Manual → Gemini → Branch → Slack / Discord",
-        description:
-            "Classifies incoming support tickets with Gemini AI. A conditional branch then routes urgent tickets to Slack and standard ones to Discord — automatically.",
+        badge: "Intermediate",
         icon: GitBranch,
         nodes: ["Manual Trigger", "Gemini AI", "Condition", "Slack", "Discord"],
-        accentFrom: "from-amber-500/10",
-        accentTo: "to-orange-500/10",
-        iconBg: "bg-amber-500/10",
-        iconColor: "text-amber-600",
-        buttonBg: "bg-amber-500/5 hover:bg-amber-500/15 border-amber-500/20 text-amber-700 dark:text-amber-400",
-        pillColor: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-        badge: "Intermediate",
-        badgeColor: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
     },
-];
+] as const;
 
 export const DemoWorkflows = () => {
     const deployDemo = useDeployDemo();
@@ -51,22 +31,20 @@ export const DemoWorkflows = () => {
     };
 
     return (
-        <section className="mb-12 w-full">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-1">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                    Quick Start Demos
-                </h2>
-                <span className="text-xs text-muted-foreground border border-border/50 px-2 py-0.5 rounded-full">
+        <section className="mb-10">
+            {/* Section divider */}
+            <div className="flex items-center gap-3 mb-6">
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+                    Quick Start
+                </span>
+                <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                <span className="text-[10px] font-medium text-zinc-300 dark:text-zinc-700 whitespace-nowrap">
                     1-click deploy
                 </span>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">
-                Click a demo to instantly open the visual editor — nodes pre-wired and a setup guide ready inside.
-            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {DEMOS.map((demo) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {DEMOS.map((demo, idx) => {
                     const Icon = demo.icon;
                     const isLoading = loadingType === demo.id;
                     const isDisabled = deployDemo.isPending;
@@ -77,73 +55,81 @@ export const DemoWorkflows = () => {
                             type="button"
                             disabled={isDisabled}
                             onClick={() => handleDeploy(demo.id)}
-                            whileHover={!isDisabled ? { y: -2, scale: 1.005 } : {}}
-                            whileTap={!isDisabled ? { scale: 0.995 } : {}}
-                            className={`
-                                relative group text-left w-full overflow-hidden rounded-xl border border-border/60
-                                bg-card shadow-sm transition-all duration-300
-                                hover:border-border hover:shadow-md
-                                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: idx * 0.06, ease: "easeOut" }}
+                            whileHover={!isDisabled ? { y: -3, transition: { duration: 0.2 } } : {}}
+                            whileTap={!isDisabled ? { scale: 0.98 } : {}}
+                            className="
+                                group relative text-left w-full overflow-hidden
+                                rounded-[1.5rem]
+                                bg-white dark:bg-zinc-900
+                                border border-zinc-100 dark:border-zinc-800/80
+                                shadow-[0_2px_16px_0_rgba(0,0,0,0.06)] hover:shadow-[0_8px_40px_0_rgba(0,0,0,0.12)]
+                                dark:shadow-none dark:hover:shadow-[0_8px_40px_0_rgba(255,255,255,0.03)]
+                                hover:border-zinc-200/70 dark:hover:border-zinc-600/50
+                                transition-all duration-300
+                                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400
                                 disabled:opacity-60 disabled:cursor-wait
-                            `}
+                            "
                         >
-                            {/* Gradient shimmer on hover */}
-                            <div className={`absolute inset-0 bg-gradient-to-br ${demo.accentFrom} via-transparent ${demo.accentTo} opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+                            {/* Card body */}
+                            <div className="p-6">
+                                {/* Header row */}
+                                <div className="flex items-center justify-between gap-3 mb-5">
+                                    <div className="flex items-center gap-3.5 min-w-0">
+                                        {/* Icon — same landing-page circle style */}
+                                        <div className="size-10 rounded-xl flex items-center justify-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700/60 shadow-sm shrink-0 group-hover:border-zinc-200 dark:group-hover:border-zinc-600 group-hover:shadow-md transition-all duration-200">
+                                            <Icon className="size-4.5 text-zinc-600 dark:text-zinc-400" strokeWidth={1.75} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-[0.9rem] font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
+                                                {demo.title}
+                                            </p>
+                                            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
+                                                {demo.badge}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                            <div className="relative z-10 p-6 flex flex-col gap-4">
-                                {/* Top row */}
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2.5 rounded-lg ${demo.iconBg} ${demo.iconColor} flex-shrink-0`}>
-                                            <Icon className="size-5" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h3 className="font-semibold text-sm text-foreground leading-snug">{demo.title}</h3>
-                                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${demo.badgeColor}`}>{demo.badge}</span>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-0.5">{demo.subtitle}</p>
-                                        </div>
+                                    {/* Deploy button */}
+                                    <div className="size-9 flex items-center justify-center rounded-xl shrink-0 border border-zinc-100 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800 shadow-sm group-hover:bg-zinc-900 dark:group-hover:bg-zinc-100 group-hover:border-zinc-900 dark:group-hover:border-zinc-100 group-hover:shadow-md transition-all duration-200">
+                                        {isLoading ? (
+                                            <Loader2 className="size-4 text-zinc-500 dark:text-zinc-400 animate-spin" />
+                                        ) : (
+                                            <Zap
+                                                className="size-4 text-zinc-500 dark:text-zinc-400 group-hover:text-white dark:group-hover:text-zinc-900 transition-colors"
+                                                strokeWidth={1.75}
+                                                fill={isLoading ? "none" : "currentColor"}
+                                                fillOpacity={isLoading ? 0 : 0.15}
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
-                                {/* Description */}
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                    {demo.description}
-                                </p>
-
-                                {/* Node pills */}
-                                <div className="flex flex-wrap gap-1.5">
+                                {/* Node flow — arrow separated */}
+                                <div className="flex flex-wrap items-center gap-1">
                                     {demo.nodes.map((node, i) => (
                                         <span key={node} className="flex items-center gap-1">
-                                            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${demo.pillColor}`}>
+                                            <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
                                                 {node}
                                             </span>
                                             {i < demo.nodes.length - 1 && (
-                                                <ArrowRight className="size-3 text-muted-foreground/50" />
+                                                <ArrowRight className="size-2.5 text-zinc-300 dark:text-zinc-600 shrink-0" />
                                             )}
                                         </span>
                                     ))}
                                 </div>
+                            </div>
 
-                                {/* CTA */}
-                                <div className={`
-                                    flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg border
-                                    text-sm font-medium transition-all duration-200
-                                    ${demo.buttonBg}
-                                `}>
-                                    {isLoading ? (
-                                        <>
-                                            <Loader2 className="size-4 animate-spin" />
-                                            Deploying workspace…
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Zap className="size-4" />
-                                            Open in Editor
-                                        </>
-                                    )}
-                                </div>
+                            {/* Card footer strip — liquid glass */}
+                            <div className="px-5 py-3 border-t border-zinc-100/60 dark:border-zinc-800/50 bg-white/30 dark:bg-zinc-800/20 backdrop-blur-sm flex items-center justify-between">
+                                <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                                    {isLoading ? "Deploying…" : "Click to open in editor"}
+                                </span>
+                                <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-300 dark:text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    Deploy <ArrowRight className="size-2.5" />
+                                </span>
                             </div>
                         </motion.button>
                     );

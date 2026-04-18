@@ -136,6 +136,8 @@ export const workflowsRouter = createTRPCRouter({
                     data: { name: demoName, userId }
                 });
                 return { id: newWorkflow.id, isExisting: false };
+            }, {
+                isolationLevel: "Serializable"
             });
 
             if (workflow.isExisting) {
@@ -453,6 +455,9 @@ export const workflowsRouter = createTRPCRouter({
     updateName: protectedProcedure
     .input(z.object({id: z.string(), name: z.string().min(1)}))
     .mutation(({ctx, input }) => {
+        if (input.name.startsWith("__demo__")) {
+             throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot use reserved prefix __demo__ for normal workflows." });
+        }
         return prisma.workflow.update({
             where: {id: input.id, userId: ctx.auth.user.id},
             data: {name: input.name}, 
@@ -524,6 +529,9 @@ export const workflowsRouter = createTRPCRouter({
                         contains:search,
                         mode:"insensitive",
                     },
+                },
+                include: {
+                    nodes: { select: { type: true } }
                 },
                 orderBy: {
                     updatedAt: "desc",
