@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-// ─── Weave thread logo (same SVG paths as app-sidebar WeaveLogoStatic) ────────
-const WeaveLogo = ({ className = "w-7 h-7" }: { className?: string }) => (
+// ─── Weave SVG logo (same paths as app-header and app-sidebar) ────────────────
+export const WeaveLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
     <svg viewBox="-12 -22 124 132" className={className} fill="none" aria-hidden>
         <path
             d="M 50 50 C 70 95, 95 95, 95 25 C 95 -20, 70 5, 50 50 C 30 95, 5 95, 5 25 C 5 -20, 30 5, 50 50 Z"
@@ -17,60 +17,33 @@ const WeaveLogo = ({ className = "w-7 h-7" }: { className?: string }) => (
     </svg>
 );
 
-// ─── Subtle dot-grid background (matches editor canvas) ───────────────────────
-const DotGrid = () => (
-    <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{
-            backgroundImage: "radial-gradient(circle, rgba(161,161,170,0.28) 1px, transparent 1px)",
-            backgroundSize: "22px 22px",
-        }}
-    />
-);
-
 const AuthLayout = ({ children }: { children: React.ReactNode }) => {
     return (
-        <div className="relative min-h-svh bg-white dark:bg-zinc-950 flex flex-col overflow-hidden">
-            {/* Dot-grid background */}
-            <DotGrid />
+        // Same weave-bg wavy pattern used by the dashboard
+        <div className="weave-bg min-h-svh flex flex-col">
 
-            {/* Very subtle radial vignette — white centre, slightly dimmed edges */}
-            <div
-                aria-hidden
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                    background: "radial-gradient(ellipse 80% 70% at 50% 40%, transparent 30%, rgba(244,244,245,0.55) 100%)",
-                }}
-            />
-
-            {/* Top navbar */}
-            <header className="relative z-10 flex items-center justify-between px-8 py-5">
+            {/* ── Navbar — matches AppHeader styling exactly ───────────── */}
+            <header className="flex h-11 shrink-0 items-center gap-2 border-b border-zinc-100 dark:border-zinc-800/60 px-6 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm sticky top-0 z-30">
                 <Link
                     href="/"
-                    className="flex items-center gap-2.5 text-zinc-900 dark:text-zinc-50 hover:opacity-80 transition-opacity duration-150"
+                    className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors duration-150"
                 >
-                    <WeaveLogo className="w-6 h-6" />
-                    <span className="text-[15px] font-semibold tracking-tight">Weave</span>
+                    <WeaveLogo className="w-3.5 h-3.5" />
+                    <span className="text-xs font-semibold tracking-wide">Weave</span>
                 </Link>
-
-                {/* Subtle version badge */}
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium tracking-wide select-none">
-                    Automate anything
-                </span>
             </header>
 
-            {/* Centred form area */}
-            <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
-                <div className="w-full max-w-[400px]">
+            {/* ── Centred content ──────────────────────────────────────── */}
+            <main className="flex flex-1 items-center justify-center px-4 py-12">
+                <div className="w-full max-w-[420px]">
                     {children}
                 </div>
             </main>
 
-            {/* Footer */}
-            <footer className="relative z-10 pb-6 text-center">
-                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-normal">
-                    © {new Date().getFullYear()} Weave. All rights reserved.
+            {/* ── Footer ──────────────────────────────────────────────── */}
+            <footer className="pb-6 text-center">
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
+                    © {new Date().getFullYear()} Weave
                 </p>
             </footer>
         </div>
