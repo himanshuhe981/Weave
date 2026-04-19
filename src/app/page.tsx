@@ -240,53 +240,36 @@ function Footer() {
   return (
     <footer className="relative border-t border-black/10 py-8 md:py-20 px-4 sm:px-6 md:px-8">
       <div className="max-w-7xl mx-auto">
-
-        {/* ── Mobile: brand full-width, then 3-col links row ── */}
-        {/* ── Desktop: classic 4-col grid unchanged ────────── */}
-
-        {/* Brand — visible on mobile as its own row */}
-        <div className="mb-6 lg:hidden">
-          <div className="flex items-center gap-2.5 mb-3">
-            <WeaveLogo className="w-6 h-6" />
-            <h4 className="text-lg font-bold" style={{ fontFamily: 'Sora, sans-serif' }}>Weave</h4>
-          </div>
-          <p className="text-xs text-black/50 leading-relaxed max-w-xs" style={{ fontFamily: 'Sora, sans-serif' }}>
-            Visual workflow automation for intelligent systems.
-          </p>
-        </div>
-
-        {/* Link columns — 3-col on mobile, hidden on lg (replaced by full 4-col below) */}
-        <div className="grid grid-cols-3 gap-4 mb-8 lg:hidden">
-          <FooterLinks title="Product"   links={['Features', 'Integrations', 'Pricing', 'Examples']} />
-          <FooterLinks title="Resources" links={['Documentation', 'API Reference', 'Templates', 'Community']} />
-          <FooterLinks title="Company"   links={['About', 'Blog', 'Careers', 'Contact']} />
-        </div>
-
-        {/* Full 4-col grid — desktop only */}
-        <div className="hidden lg:grid lg:grid-cols-4 lg:gap-16 mb-16">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-16 mb-8 md:mb-16">
           <div>
             <div className="flex items-center gap-3 mb-6">
               <WeaveLogo className="w-8 h-8" />
-              <h4 className="text-2xl font-bold" style={{ fontFamily: 'Sora, sans-serif' }}>Weave</h4>
+              <h4 className="text-2xl font-bold" style={{ fontFamily: 'Sora, sans-serif' }}>
+                Weave
+              </h4>
             </div>
             <p className="text-sm text-black/50 leading-relaxed" style={{ fontFamily: 'Sora, sans-serif' }}>
               Visual workflow automation for intelligent systems. Build, deploy, and scale automated workflows without code.
             </p>
           </div>
-          <FooterLinks title="Product"   links={['Features', 'Integrations', 'Pricing', 'Examples']} />
+          <FooterLinks title="Product" links={['Features', 'Integrations', 'Pricing', 'Examples']} />
           <FooterLinks title="Resources" links={['Documentation', 'API Reference', 'Templates', 'Community']} />
-          <FooterLinks title="Company"   links={['About', 'Blog', 'Careers', 'Contact']} />
+          <FooterLinks title="Company" links={['About', 'Blog', 'Careers', 'Contact']} />
         </div>
-
-        {/* Bottom bar */}
         <div className="pt-6 border-t border-black/5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs sm:text-sm text-black/40" style={{ fontFamily: 'Sora, sans-serif' }}>
+          <p className="text-sm text-black/40" style={{ fontFamily: 'Sora, sans-serif' }}>
             © 2026 Weave. All rights reserved.
           </p>
-          <div className="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm text-black/40">
-            <button className="hover:text-black transition-colors" style={{ fontFamily: 'Sora, sans-serif' }}>Privacy Policy</button>
-            <button className="hover:text-black transition-colors" style={{ fontFamily: 'Sora, sans-serif' }}>Terms of Service</button>
-            <button className="hover:text-black transition-colors" style={{ fontFamily: 'Sora, sans-serif' }}>Security</button>
+          <div className="flex items-center gap-4 text-sm text-black/40">
+            <button className="hover:text-black transition-colors" style={{ fontFamily: 'Sora, sans-serif' }}>
+              Privacy Policy
+            </button>
+            <button className="hover:text-black transition-colors" style={{ fontFamily: 'Sora, sans-serif' }}>
+              Terms of Service
+            </button>
+            <button className="hover:text-black transition-colors" style={{ fontFamily: 'Sora, sans-serif' }}>
+              Security
+            </button>
           </div>
         </div>
       </div>
@@ -297,17 +280,14 @@ function Footer() {
 function FooterLinks({ title, links }: { title: string; links: string[] }) {
   return (
     <div>
-      <h5
-        className="text-[10px] sm:text-sm font-semibold mb-3 uppercase tracking-wider text-black"
-        style={{ fontFamily: 'Sora, sans-serif' }}
-      >
+      <h5 className="text-sm font-semibold mb-4 uppercase tracking-wider" style={{ fontFamily: 'Sora, sans-serif' }}>
         {title}
       </h5>
-      <div className="space-y-2 sm:space-y-3">
+      <div className="space-y-3">
         {links.map((link) => (
           <button
             key={link}
-            className="block text-[11px] sm:text-sm text-black/55 hover:text-black transition-colors text-left"
+            className="block text-sm text-black/60 hover:text-black transition-colors"
             style={{ fontFamily: 'Sora, sans-serif' }}
           >
             {link}
