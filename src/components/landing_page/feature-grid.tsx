@@ -9,65 +9,67 @@ import {
 import { WeaveLogo } from './weave-logo-animated';
 
 const BENTO_FEATURES = [
-  {
-    icon: <Zap className="w-7 h-7 md:w-10 md:h-10 text-white" />,
-    title: 'Visual Node Editor',
-    description: 'Drag-and-drop canvas. Build complex logic without a single line of code.',
-    // mobile: full-width (2 cols); tablet: 2-col; desktop: 2-col 2-row
-    classes: 'col-span-2 sm:col-span-2 lg:col-span-2 lg:row-span-2',
-    isLarge: true,
+  { 
+    icon: <Zap className="w-8 h-8 md:w-10 md:h-10 text-white" />, 
+    title: 'Visual Node Editor', 
+    description: 'Intuitive drag-and-drop canvas. Build complex logic natively without writing a single line of code.',
+    classes: 'col-span-1 sm:col-span-2 lg:col-span-2 lg:row-span-2',
+    isLarge: true
   },
-  {
-    icon: <Sparkles className="w-5 h-5 md:w-8 md:h-8 text-black" />,
-    title: 'Native AI Integration',
-    description: 'OpenAI, Gemini, and Claude built natively into every pipeline.',
-    classes: 'col-span-2 sm:col-span-2 lg:col-span-2 lg:row-span-1',
-    isWide: true,
+  { 
+    icon: <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-black" />, 
+    title: 'Native AI Integration', 
+    description: 'OpenAI, Gemini, and Claude built-in natively into the core pipeline.',
+    classes: 'col-span-1 sm:col-span-2 lg:col-span-2 lg:row-span-1',
+    isWide: true
   },
-  {
-    icon: <Shield className="w-5 h-5 text-black" />,
-    title: 'Enterprise Security',
-    description: 'End-to-end AES-256 encryption with full audit tracking.',
-    classes: 'col-span-1 lg:col-span-1 lg:row-span-1',
+  { 
+    icon: <Shield className="w-6 h-6 text-black" />, 
+    title: 'Enterprise Security', 
+    description: 'End-to-end encryption, robust AES-256 protocols and strict audit tracking.',
+    classes: 'col-span-1 sm:col-span-1 lg:col-span-1 lg:row-span-1'
   },
-  {
-    icon: <Workflow className="w-5 h-5 text-black" />,
-    title: 'Real-Time Execution',
-    description: 'Sub-millisecond trigger latency, globally distributed.',
-    classes: 'col-span-1 lg:col-span-1 lg:row-span-1',
+  { 
+    icon: <Workflow className="w-6 h-6 text-black" />, 
+    title: 'Real-Time Execution', 
+    description: 'Sub-millisecond latency on triggers globally distributed.',
+    classes: 'col-span-1 sm:col-span-1 lg:col-span-1 lg:row-span-1'
   },
-  {
-    icon: <Boxes className="w-5 h-5 text-black" />,
-    title: 'Template Library',
-    description: '500+ pre-built workflows ready to deploy instantly.',
-    classes: 'col-span-1 lg:col-span-1 lg:row-span-1',
+  { 
+    icon: <Boxes className="w-6 h-6 text-black" />, 
+    title: 'Template Library', 
+    description: '500+ pre-built workflow templates instantly ready to deploy.',
+    classes: 'col-span-1 sm:col-span-1 lg:col-span-1 lg:row-span-1'
   },
-  {
-    icon: <Code2 className="w-5 h-5 md:w-8 md:h-8 text-black" />,
-    title: 'Developer-First API',
-    description: 'REST API, webhooks, TypeScript SDK, and CLI for power users.',
+  { 
+    icon: <Code2 className="w-6 h-6 md:w-8 md:h-8 text-black" />, 
+    title: 'Developer-First API', 
+    description: 'REST API, webhooks, TypeScript SDK, and robust CLI tools exclusively for power users.',
+    classes: 'col-span-1 sm:col-span-2 lg:col-span-2 lg:row-span-1',
+    isWide: true
+  },
+  { 
+    icon: <Clock className="w-6 h-6 text-black" />, 
+    title: 'Precision CRON', 
+    description: 'Recurring tasks seamlessly synchronised globally.',
+    classes: 'col-span-1 sm:col-span-1 lg:col-span-1 lg:row-span-1',
+    hideOnMobile: true
+  },
+  { 
+    icon: <GitMerge className="w-6 h-6 md:w-8 md:h-8 text-black" />, 
+    title: 'Version Control', 
+    description: 'Track changes instantly, rollback complex deployments safely, and branch logic.',
     classes: 'col-span-1 sm:col-span-2 lg:col-span-2 lg:row-span-1',
     isWide: true,
+    hideOnMobile: true
   },
-  {
-    icon: <Clock className="w-5 h-5 text-black" />,
-    title: 'Precision CRON',
-    description: 'Recurring tasks scheduled and synced globally.',
-    classes: 'col-span-1 lg:col-span-1 lg:row-span-1',
-  },
-  {
-    icon: <GitMerge className="w-5 h-5 md:w-8 md:h-8 text-black" />,
-    title: 'Version Control',
-    description: 'Track changes, rollback deployments, and branch logic safely.',
-    classes: 'col-span-2 sm:col-span-2 lg:col-span-2 lg:row-span-1',
+  { 
+    icon: <Gauge className="w-6 h-6 md:w-8 md:h-8 text-black" />, 
+    title: 'Performance Analytics', 
+    description: 'Monitor latency, deep success rates, and active system resources visually.',
+    classes: 'col-span-1 sm:col-span-2 lg:col-span-2 lg:row-span-1',
     isWide: true,
-  },
-  {
-    icon: <Gauge className="w-5 h-5 md:w-8 md:h-8 text-black" />,
-    title: 'Performance Analytics',
-    description: 'Monitor latency, success rates, and resources visually.',
-    classes: 'col-span-2 sm:col-span-2 lg:col-span-2 lg:row-span-1',
-    isWide: true,
+    hideOnMobile: true
   },
 ];
 
@@ -99,11 +101,11 @@ function BentoCard({ item, index, isMobile }: any) {
        onMouseMove={handleMouseMove}
        onMouseEnter={() => !isMobile && setIsHovered(true)}
        onMouseLeave={handleMouseLeave}
-       className={`${item.classes} relative perspective-[2000px] w-full h-full`}
-       initial={{ opacity: 0, y: 40 }}
+       className={`${item.classes} ${item.hideOnMobile ? 'hidden sm:block' : ''} relative perspective-[2000px] w-full ${item.isLarge ? 'min-h-[240px]' : 'min-h-[180px]'} sm:h-full`}
+       initial={{ opacity: 0, y: 60 }}
        whileInView={{ opacity: 1, y: 0 }}
-       viewport={{ once: true, margin: "-30px" }}
-       transition={{ duration: 0.6, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+       viewport={{ once: true, margin: "-50px" }}
+       transition={{ duration: 0.8, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
     >
        <motion.div 
          animate={{ 
@@ -114,7 +116,7 @@ function BentoCard({ item, index, isMobile }: any) {
          }}
          transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.8 }}
          style={{ transformStyle: 'preserve-3d' }}
-         className={`relative w-full h-full rounded-[2.25rem] bg-white/60 backdrop-blur-[24px] border border-white/80 overflow-hidden group`}
+         className={`relative w-full min-h-[180px] sm:h-full rounded-[2.25rem] bg-white/60 backdrop-blur-[24px] border border-white/80 overflow-hidden group`}
        >
          {/* Exceptionally deep modernized shadow natively detached projecting elegantly beneath the liquid-glass hull */}
          <motion.div
@@ -157,36 +159,37 @@ function BentoCard({ item, index, isMobile }: any) {
 
          {/* Internal content arrays isolated 20px off the frosty bounding creating violent stunning 3D parallax offsets identically natively */}
          {item.isWide ? (
-             <div className="p-4 md:p-8 flex flex-col sm:flex-row h-full justify-between items-start sm:items-center relative z-10 w-full" style={{ transform: !isMobile ? 'translateZ(24px)' : 'none' }}>
-                <div className="flex flex-col z-10 w-full sm:max-w-[75%]">
-                   <div className="w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white/80 flex items-center justify-center mb-3 md:mb-4 border border-white/60 shadow-sm transform group-hover:scale-110 transition-transform duration-500 backdrop-blur-md">
+             <div className="p-6 md:p-8 flex flex-col sm:flex-row h-full justify-between items-start sm:items-center relative z-10 w-full" style={{ transform: !isMobile ? 'translateZ(24px)' : 'none' }}>
+                <div className="flex flex-col z-10 w-full sm:max-w-[70%]">
+                   <div className="w-12 h-12 rounded-2xl bg-white/80 flex items-center justify-center mb-6 sm:mb-4 border border-white/60 shadow-sm transform group-hover:scale-110 transition-transform duration-500 backdrop-blur-md">
                      {item.icon}
                    </div>
-                   <h3 className="text-base md:text-2xl font-extrabold mb-1 md:mb-2 text-black tracking-tight" style={{ fontFamily: 'Sora, sans-serif' }}>{item.title}</h3>
-                   <p className="text-[12px] md:text-[15px] font-medium text-black/50 leading-relaxed">{item.description}</p>
+                   <h3 className="text-xl md:text-2xl font-extrabold mb-2 text-black tracking-tight" style={{ fontFamily: 'Sora, sans-serif' }}>{item.title}</h3>
+                   <p className="text-[14px] md:text-[15px] font-medium text-black/50 leading-relaxed max-w-[90%]">{item.description}</p>
                 </div>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 opacity-[0.025] group-hover:opacity-[0.05] group-hover:-translate-x-6 transition-all duration-700 pointer-events-none text-black hidden sm:block">
+                {/* Scaled absolute bounding icon organically clipped serving extremely modern Apple-esque typography silhouettes */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 opacity-[0.025] group-hover:opacity-[0.05] group-hover:-translate-x-6 group-hover:scale-[1.1] transition-all duration-700 pointer-events-none text-black hidden sm:block">
                    <div style={{ transform: 'scale(10)' }}>{item.icon}</div>
                 </div>
              </div>
           ) : item.isLarge ? (
-             <div className="p-5 md:p-10 flex flex-col justify-between h-full relative z-10 w-full" style={{ transform: !isMobile ? 'translateZ(24px)' : 'none' }}>
+             <div className="p-8 md:p-10 flex flex-col justify-between h-full relative z-10 w-full" style={{ transform: !isMobile ? 'translateZ(24px)' : 'none' }}>
                 <div className="flex flex-col z-10">
-                   <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl md:rounded-[1.25rem] bg-black flex items-center justify-center mb-4 md:mb-8 shadow-xl shadow-black/20 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
+                   <div className="w-16 h-16 rounded-[1.25rem] bg-black flex items-center justify-center mb-8 shadow-2xl shadow-black/20 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
                      {item.icon}
                    </div>
-                   <h3 className="text-2xl md:text-[2.5rem] font-black mb-2 md:mb-4 text-black tracking-tight leading-[1.1]" style={{ fontFamily: 'Sora, sans-serif' }}>{item.title}</h3>
-                   <p className="text-[13px] md:text-[17px] text-black/60 font-medium leading-relaxed">{item.description}</p>
+                   <h3 className="text-3xl md:text-[2.5rem] font-black mb-4 text-black tracking-tight leading-[1.1]" style={{ fontFamily: 'Sora, sans-serif' }}>{item.title}</h3>
+                   <p className="text-[16px] md:text-[17px] text-black/60 font-medium leading-relaxed max-w-[85%]">{item.description}</p>
                 </div>
              </div>
           ) : (
-             <div className="p-4 md:p-8 flex flex-col justify-between h-full relative z-10 w-full" style={{ transform: !isMobile ? 'translateZ(24px)' : 'none' }}>
-                <div className="w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white/80 flex items-center justify-center border border-white/60 shadow-sm transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 backdrop-blur-md">
+             <div className="p-6 md:p-8 flex flex-col justify-between h-full relative z-10 w-full" style={{ transform: !isMobile ? 'translateZ(24px)' : 'none' }}>
+                <div className="w-12 h-12 rounded-2xl bg-white/80 flex items-center justify-center mb-auto border border-white/60 shadow-sm transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 backdrop-blur-md">
                   {item.icon}
                 </div>
-                <div className="mt-3 md:mt-8">
-                  <h3 className="text-sm md:text-xl font-bold mb-1 md:mb-2 text-black tracking-tight" style={{ fontFamily: 'Sora, sans-serif' }}>{item.title}</h3>
-                  <p className="text-[11px] md:text-[14px] font-medium text-black/50 leading-relaxed">{item.description}</p>
+                <div className="mt-8">
+                  <h3 className="text-[1.15rem] md:text-xl font-bold mb-2 text-black tracking-tight" style={{ fontFamily: 'Sora, sans-serif' }}>{item.title}</h3>
+                  <p className="text-[13px] md:text-[14px] font-medium text-black/50 leading-relaxed">{item.description}</p>
                 </div>
              </div>
           )}
@@ -226,27 +229,21 @@ export function FeatureGrid() {
   const z = useTransform(smoothProgress, [0, 0.3, 0.7, 1], [-300, 0, 0, -150]);
 
   return (
-    <div ref={containerRef} className="relative w-full mt-10 md:mt-24 pb-10 md:pb-20 perspective-[2500px]">
-       <motion.div
-         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] bg-black/[0.04] blur-[100px] rounded-full pointer-events-none z-[-1]"
+    <div ref={containerRef} className="relative w-full mt-10 md:mt-24 pb-20 perspective-[2500px]">
+       {/* Ambient Depth: Massive highly modernized atmospheric shadow exclusively rendering deeply underneath the sweeping 3D grid layout */}
+       <motion.div 
+         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[85%] bg-black/[0.05] blur-[120px] rounded-[100px] pointer-events-none z-[-1]"
          style={{ scale }}
        />
 
-       <motion.div
-          className={
-            // Mobile: compact 2-col grid with short rows
-            // sm (≥640): 2-col with medium rows
-            // lg (≥1024): 4-col bento with tall rows
-            "grid grid-cols-2 lg:grid-cols-4 grid-flow-row-dense " +
-            "auto-rows-[140px] sm:auto-rows-[190px] lg:auto-rows-[280px] " +
-            "gap-3 md:gap-6"
-          }
-          style={{
-             rotateX: isMobile ? 0 : rotateX,
-             rotateY: isMobile ? 0 : rotateY,
+       <motion.div 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 grid-flow-row-dense auto-rows-auto sm:auto-rows-[240px] lg:auto-rows-[280px] gap-4 md:gap-6"
+          style={{ 
+             rotateX: isMobile ? 0 : rotateX, 
+             rotateY: isMobile ? 0 : rotateY, 
              scale: isMobile ? 1 : scale,
              z: isMobile ? 0 : z,
-             transformStyle: 'preserve-3d',
+             transformStyle: 'preserve-3d' 
           }}
        >
          {BENTO_FEATURES.map((item, index) => (
