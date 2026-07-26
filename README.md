@@ -4,14 +4,12 @@
 
 **Visual Workflow Automation for Intelligent Systems**
 
-You drag nodes. You connect them. Weave does the rest.  
-No code required. Seriously.
-
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)](https://neon.tech/)
 [![tRPC](https://img.shields.io/badge/tRPC-11-398CCB?logo=trpc&logoColor=white)](https://trpc.io/)
+[![Inngest](https://img.shields.io/badge/Inngest-3-7C3AED)](https://inngest.com/)
 
 </div>
 
@@ -20,138 +18,171 @@ No code required. Seriously.
 ## Table of Contents
 
 - [What is Weave?](#what-is-weave)
-- [What Can You Actually Do With It?](#what-can-you-actually-do-with-it)
-- [Key Features](#key-features)
+- [How It Actually Works](#how-it-actually-works)
+- [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Getting Started Locally](#getting-started-locally)
   - [Prerequisites](#prerequisites)
-  - [Step 1 — Clone the Repository](#step-1--clone-the-repository)
+  - [Step 1 — Clone](#step-1--clone)
   - [Step 2 — Install Dependencies](#step-2--install-dependencies)
-  - [Step 3 — Configure Environment Variables](#step-3--configure-environment-variables)
-  - [Step 4 — Set Up the Database](#step-4--set-up-the-database)
-  - [Step 5 — Start the Development Server](#step-5--start-the-development-server)
-  - [Step 6 — Start the Inngest Dev Server](#step-6--start-the-inngest-dev-server)
-  - [Step 7 — Set Up Webhooks with ngrok](#step-7--set-up-webhooks-with-ngrok-optional)
+  - [Step 3 — Environment Variables](#step-3--environment-variables)
+  - [Step 4 — Database Setup](#step-4--database-setup)
+  - [Step 5 — Run the Dev Server](#step-5--run-the-dev-server)
+  - [Step 6 — Run the Inngest Dev Server](#step-6--run-the-inngest-dev-server)
+  - [Step 7 — Webhook Tunneling with ngrok](#step-7--webhook-tunneling-with-ngrok-optional)
 - [Available Scripts](#available-scripts)
+- [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
-- [Node Types](#node-types)
-- [Database Schema Overview](#database-schema-overview)
-- [Environment Variables Reference](#environment-variables-reference)
+- [Node Reference](#node-reference)
+- [Database Schema](#database-schema)
+- [API Layer](#api-layer)
+- [Plans and Limits](#plans-and-limits)
+- [Environment Variable Reference](#environment-variable-reference)
 - [Contributing](#contributing)
-- [License](#license)
 
 ---
 
 ## What is Weave?
 
-Weave is a full-stack, AI-powered workflow automation platform built on Next.js. The idea is simple: instead of writing glue code to connect services together, you open a canvas, drop nodes on it, draw arrows between them, and hit run. Weave figures out the execution order, handles the background jobs, retries failures, and keeps logs of everything.
+Weave is a full-stack visual workflow automation platform. The pitch is simple: instead of writing a pile of glue code every time you want two services to talk to each other, you open a canvas, drop some nodes on it, draw arrows between them, and press run. Weave handles the graph traversal, background execution, retries, branching logic, and execution history.
 
-Think of it like n8n or Zapier — except you built it yourself, which is infinitely cooler to put on a resume.
+Think n8n or Zapier — except you built this one from scratch with a proper tech stack, which is infinitely better for your resume and your understanding of how these systems actually work under the hood.
 
-Under the hood it is a proper production-grade application: tRPC for type-safe APIs, Prisma for database access, Inngest for durable workflow execution, Better Auth for authentication, and Polar.sh for billing. The landing page alone has GSAP scroll animations and a custom cursor. No shortcuts were taken.
-
----
-
-## What Can You Actually Do With It?
-
-Here are some real things you can automate with Weave, so you have something to show off when someone asks "what does it do":
-
-- A webhook fires (say, a form submission or a Stripe payment) and Weave automatically sends a formatted message to Discord or Slack.
-- A schedule trigger runs every morning, calls the OpenAI node with a custom prompt, and pipes the response to a Telegram bot.
-- A Condition node checks whether a JSON value meets some criteria and routes the workflow down a different path depending on the result.
-- A JSON Transform node reshapes messy API response data into something clean before passing it to the next step.
-- A Delay node sits in the middle of a workflow and pauses execution for a set amount of time — because sometimes you just need to wait.
+It is a real production-grade application. The execution engine uses a topological sort to determine the correct order of node execution. There is a proper branching engine for Condition nodes. Scheduled workflows use Inngest's durable `step.sleepUntil` inside an infinite loop that survives server restarts. Credentials are encrypted at rest with AES. The API enforces plan limits at the tRPC middleware level. None of this is fake.
 
 ---
 
-## Key Features
+## How It Actually Works
 
-| Feature | What it means in practice |
+Understanding this before diving into code will save you a lot of time.
+
+**The Execution Engine**
+
+When you trigger a workflow, the app sends an event called `workflows/execute.workflow` to Inngest. Inngest picks this up and runs the `executeWorkflow` function in `src/inngest/functions.ts`. Here is what happens inside that function, step by step:
+
+1. A new `Execution` record is created in the database with status `RUNNING`.
+2. The workflow is loaded from Postgres — all nodes and connections.
+3. The nodes are sorted into execution order using a topological sort (via the `toposort` package). This is what ensures a node never runs before its inputs are ready.
+4. The runner walks the sorted graph, node by node. For each node, it calls the corresponding executor from the `executorRegistry` — a simple map of `NodeType -> executor function`.
+5. Each executor receives a `context` object containing the accumulated outputs from all previous nodes, and returns a new context with its own output merged in. This is how data flows between nodes — every node can reference the output of any upstream node via template variables like `{{myGemini.text}}`.
+6. When a `CONDITION` node runs, it returns a special `__branch` field (`"true"` or `"false"`). The runner reads this and follows the matching connection's `fromOutput` handle instead of the default path.
+7. There is a safety guard: if a workflow somehow exceeds 100 steps, it throws a `NonRetriableError` to prevent infinite loops.
+8. Once all nodes have run, the `Execution` record is updated to `SUCCESS` with the final context as output. If anything throws, the Inngest `onFailure` handler catches it and marks the execution as `FAILED`.
+
+**The Schedule Runner**
+
+The `scheduleRunner` Inngest function (`src/inngest/schedule-runner.ts`) is a separate, long-running function. When started for a workflow, it enters an infinite `while(true)` loop. On each iteration it reads the workflow's cron expression, uses `CronExpressionParser` to calculate the next fire time, calls `step.sleepUntil(nextDate)` — which is a durable sleep that survives restarts — then fires the workflow. This repeats forever until the schedule node is disabled.
+
+**The API**
+
+Everything the frontend does goes through tRPC. There are three routers: `workflows`, `credentials`, and `executions`. There are three tiers of procedure:
+- `baseProcedure` — anyone can call it
+- `protectedProcedure` — requires a valid session (checked via Better Auth)
+- `premiumProcedure` — requires an active Polar.sh subscription (checked against the Polar API)
+
+Plan limits are enforced inside the `workflowsRouter.create` mutation: free users are capped at 5 workflows via a Prisma transaction with a row-count check.
+
+---
+
+## Features
+
+| Feature | Details |
 |---|---|
-| Visual Editor | A full drag-and-drop canvas built on React Flow. You build workflows by connecting boxes. |
-| AI Nodes | Call OpenAI, Claude, or Gemini mid-workflow with a custom prompt and use the response as output. |
-| 15+ Node Types | Triggers, conditions, delays, transforms, and messaging integrations — all built in. |
-| Real-time Execution | Workflows run as durable background jobs via Inngest. They survive server restarts and handle retries automatically. |
-| Credential Vault | Store API keys once, encrypted, and reference them in any node. No hardcoding secrets in workflows. |
-| Scheduled Triggers | Run workflows on a cron schedule. Set it and forget it. |
-| Webhook Triggers | Every workflow gets a unique URL. POST to it and the workflow fires. |
-| Execution History | Every run is logged with status, output, timing, and errors. Nothing disappears into a void. |
-| Auth | GitHub and Google social login plus email/password, all handled by Better Auth. |
-| Subscription Billing | Free and paid plans managed via Polar.sh. Monetization is already wired in. |
-| Error Monitoring | Sentry on both the client and server. You will know when something breaks before the user does. |
+| Visual Editor | Drag-and-drop canvas built on React Flow. Nodes, edges, handles — the full package. Save triggers a tRPC mutation that diffs and rebuilds the graph in a single Postgres transaction. |
+| Execution Engine | Topological sort + iterative branching engine running as a durable Inngest function. Handles linear flows, conditional branches, and everything in between. |
+| 15 Built-in Nodes | Five trigger types and ten action/logic nodes. See the full node reference below. |
+| Credential Vault | Per-user encrypted API key storage. Keys are AES-encrypted via Cryptr before hitting the database. Executors decrypt on the fly at runtime. |
+| Real-time Execution Logs | Each node has an Inngest Realtime channel. Status updates are pushed to the client as the workflow runs — you can watch it execute live. |
+| Scheduled Triggers | Cron-based scheduling using a durable Inngest long-running function. Set a cron expression on the node, enable it, and it runs forever on schedule. |
+| Webhook Triggers | Each workflow gets a unique URL at `/api/webhooks/[workflowId]`. POST anything there and the workflow fires with the request body available as context. |
+| Demo Workflows | Two pre-built deployable demo workflows: an AI Summarizer Bot and a Smart Ticket Triage system. Both are created with real nodes and connections via the `deployDemo` mutation. |
+| Auth | Email/password and social login (GitHub, Google) via Better Auth. A Polar.sh customer record is created automatically on sign-up. |
+| Subscription Billing | Free and Pro plans managed via Polar.sh. Plan checks happen at the tRPC middleware level — not just the UI. |
+| Error Monitoring | Sentry on client and server with source maps. The `tunnelRoute` is configured so it works even when users have ad-blockers. |
+| Paginated Execution History | Full run history with status, output, error stack traces, and timing. Paginated with search. |
 
 ---
 
 ## Tech Stack
 
-This section exists so you know what you are working with before you touch anything.
-
 ### Frontend
 
-| Library | Why it is here |
-|---|---|
-| [Next.js 16](https://nextjs.org/) | React framework with App Router. Turbopack makes the dev server fast enough that you will actually enjoy refreshing the page. |
-| [React 19](https://react.dev/) | You know what React is. |
-| [React Flow](https://reactflow.dev/) | The library powering the entire workflow canvas. Nodes, edges, drag-and-drop — all of it. |
-| [Tailwind CSS v4](https://tailwindcss.com/) | Utility-first CSS. The globals.css is doing a lot of heavy lifting alongside it. |
-| [Motion](https://motion.dev/) + [GSAP](https://gsap.com/) | Animation libraries. The landing page uses both. GSAP handles scroll-triggered reveals, Motion handles component transitions. |
-| [Jotai](https://jotai.org/) | Atomic state management for the editor. Lightweight and not Redux. |
-| [TanStack Query](https://tanstack.com/query) | Handles all the server state, caching, and background refetching on the client. |
-| [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/) | Forms and runtime schema validation. Every input in this app is validated. |
-| [nuqs](https://nuqs.47ng.com/) | Type-safe URL search params. State lives in the URL where it belongs. |
+| Library | Version | Role |
+|---|---|---|
+| Next.js | 16 | React framework with App Router and Turbopack |
+| React | 19 | UI library |
+| @xyflow/react (React Flow) | 12 | The workflow canvas — nodes, edges, drag-and-drop |
+| Tailwind CSS | v4 | Styling |
+| Motion | 12 | Component animations and transitions |
+| GSAP + ScrollTrigger | 3 | Scroll-driven animations on the landing page |
+| Jotai | 2 | Atomic state management for editor state |
+| TanStack Query | 5 | Server state, caching, background refetching |
+| tRPC client | 11 | Type-safe API calls from the browser |
+| React Hook Form + Zod | 7 + 4 | Forms and schema validation |
+| nuqs | 2 | Type-safe URL search params |
+| Recharts | 2 | Charts in execution views |
+| react-resizable-panels | 3 | Resizable panel layouts in the editor |
+| Sonner | 2 | Toast notifications |
 
 ### Backend
 
-| Library | Why it is here |
-|---|---|
-| [tRPC v11](https://trpc.io/) | End-to-end type safety between your server and client without writing a REST API. If you change a backend function signature, TypeScript yells at you on the frontend immediately. |
-| [Prisma v6](https://www.prisma.io/) | The ORM. Schema lives in `prisma/schema.prisma`. Migrations are tracked. No raw SQL unless you really want to. |
-| [Neon PostgreSQL](https://neon.tech/) | Serverless Postgres. Free tier is generous enough for development and small deployments. |
-| [Inngest](https://www.inngest.com/) | This is the backbone of workflow execution. Each workflow run is an Inngest function call. It handles retries, concurrency, delays, and scheduling automatically. |
-| [Better Auth](https://www.better-auth.com/) | Authentication without the pain of rolling your own sessions and OAuth flows. Handles GitHub, Google, and email/password out of the box. |
-| [Polar.sh](https://polar.sh/) | Payments and subscription management. Already integrated, already working. The `POLAR_SERVER=sandbox` flag keeps it safe during local development. |
-| [Sentry](https://sentry.io/) | Error tracking. Captures exceptions with full stack traces on both the server (Node.js) and the client (browser). |
-| [Cryptr](https://github.com/MauriceButler/cryptr) | Used to symmetrically encrypt credentials before they go into the database. Your stored API keys are not plaintext. |
+| Library | Version | Role |
+|---|---|---|
+| tRPC server | 11 | End-to-end type-safe API layer with three middleware tiers |
+| Prisma | 6 | ORM — schema-first, migrations tracked, PostgreSQL adapter |
+| Neon (PostgreSQL) | — | Serverless Postgres with connection pooling |
+| Inngest | 3 | Durable workflow execution, scheduling, real-time streaming |
+| Better Auth | 1 | Auth — sessions, OAuth, email/password, Polar plugin |
+| Polar.sh | 0.41 | Subscription billing and customer management |
+| Sentry | 10 | Error monitoring with Edge and Node runtime support |
+| Cryptr | 6 | Symmetric AES encryption for stored credentials |
+| SuperJSON | 2 | tRPC data transformer — handles Dates, Maps, Sets correctly |
+| Handlebars | 4 | Template variable resolution in node data (the `{{var.field}}` syntax) |
+| cron-parser | 5 | Parses cron expressions for the schedule trigger |
+| toposort | 2 | Topological sort for workflow graph traversal |
 
 ### Developer Tooling
 
-| Tool | Why it is here |
+| Tool | Role |
 |---|---|
-| [Biome](https://biomejs.dev/) | Linter and formatter combined into one fast tool. Replaces both ESLint and Prettier. Run `npm run lint` before you commit anything. |
-| [TypeScript 5](https://www.typescriptlang.org/) | Strict mode is on. Embrace it. It saves you from yourself. |
-| [dotenv-cli](https://github.com/entropitor/dotenv-cli) | Lets npm scripts inject `.env` variables. Used by the `ngrok:dev` script. |
-| [ngrok](https://ngrok.com/) | Tunnels your localhost to a public URL so external services can reach your webhook endpoints during development. |
+| Biome | Unified linter + formatter. Replaces ESLint and Prettier. |
+| TypeScript 5 (strict) | Strict mode enabled. If it compiles, it is probably correct. |
+| dotenv-cli | Injects `.env` into npm scripts (used by `ngrok:dev`) |
+| ngrok | Public tunnel for local webhook testing |
 
 ---
 
 ## Getting Started Locally
 
-Follow these steps in order. Skipping steps is how you spend an hour debugging something that was never your fault.
+Follow the steps below in order. Skipping ahead because "it's probably fine" is how you end up spending 45 minutes debugging an `ENCRYPTION_KEY` error at 11pm.
 
 ### Prerequisites
 
-You need these installed on your machine before anything else:
+**Tools you need installed:**
 
-| Tool | Minimum Version | Where to get it |
+| Tool | Minimum Version | Download |
 |---|---|---|
 | Node.js | 20 | [nodejs.org](https://nodejs.org/) |
-| npm | 10 | Comes with Node.js |
+| npm | 10 | Bundled with Node.js |
 | Git | Any | [git-scm.com](https://git-scm.com/) |
 
-You also need accounts on these services. All of them have free tiers and you will not be asked for a credit card for the required ones:
+**External service accounts you will need:**
 
-| Service | What it is for | Required? |
-|---|---|---|
-| [Neon](https://neon.tech/) | Your PostgreSQL database | Yes |
-| [Inngest](https://inngest.com/) | Workflow execution and local dev server | Yes |
-| [GitHub OAuth App](https://github.com/settings/developers) | GitHub social login | Yes |
-| [Google Cloud](https://console.cloud.google.com/) | Google social login | No |
-| [Polar.sh](https://sandbox.polar.sh/) | Billing and subscriptions | No |
-| [Sentry](https://sentry.io/) | Error monitoring | No |
+| Service | Purpose | Required? | Link |
+|---|---|---|---|
+| Neon | Serverless PostgreSQL database | Yes | [neon.tech](https://neon.tech/) |
+| Inngest | Workflow execution and local dev server | Yes | [inngest.com](https://inngest.com/) |
+| GitHub (OAuth App) | GitHub social login | Yes | [github.com/settings/developers](https://github.com/settings/developers) |
+| Google Cloud | Google social login | No | [console.cloud.google.com](https://console.cloud.google.com/) |
+| Polar.sh | Billing — sandbox environment | No | [sandbox.polar.sh](https://sandbox.polar.sh/) |
+| Sentry | Error tracking | No | [sentry.io](https://sentry.io/) |
+| ngrok | Webhook tunneling for local dev | No | [ngrok.com](https://ngrok.com/) |
+
+All of these have free tiers. You will not be asked for a credit card to get started.
 
 ---
 
-### Step 1 — Clone the Repository
+### Step 1 — Clone
 
 ```bash
 git clone https://github.com/himanshuhe981/Weave.git
@@ -166,439 +197,610 @@ cd Weave
 npm install
 ```
 
-This will take a minute. There are a lot of packages. When it is done, Prisma generates its client automatically via the `postinstall` script — you do not need to do anything extra.
+After packages are installed, a `postinstall` script automatically runs `prisma generate` to produce the typed Prisma client from `prisma/schema.prisma`. You will see Prisma output in the terminal — that is normal.
 
 ---
 
-### Step 3 — Configure Environment Variables
+### Step 3 — Environment Variables
 
-Create a file named `.env` in the root of the project. Copy the template below and replace the placeholder values with your actual credentials.
-
-Read the comments. They explain what each variable does and where to get the value.
+Create a `.env` file in the project root. Copy the annotated template below and fill in your values.
 
 ```bash
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 # DATABASE
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 
-# Your PostgreSQL connection string from Neon (or wherever you are hosting Postgres).
-# In Neon: go to your project dashboard, click "Connection string", copy it here.
+# Grab this from your Neon project dashboard under "Connection string".
+# It must have ?sslmode=require at the end — Neon requires SSL.
 DATABASE_URL="postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require"
 
 
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 # BETTER AUTH
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 
-# A random secret string for signing auth tokens. Do not reuse this anywhere.
-# Generate a good one: openssl rand -hex 32
-BETTER_AUTH_SECRET="your-random-32-char-secret"
+# Random secret used to sign session tokens. Generate a good one:
+#   openssl rand -hex 32
+BETTER_AUTH_SECRET="your-random-secret-here"
 
-# The base URL of your running app. Leave this as-is for local development.
+# The URL of your running app. Leave as localhost for local dev.
 BETTER_AUTH_URL="http://localhost:3000"
 
-# GitHub OAuth credentials.
-# Go to github.com/settings/developers -> New OAuth App.
-# Set Homepage URL to http://localhost:3000
-# Set callback URL to http://localhost:3000/api/auth/callback/github
+# GitHub OAuth App credentials.
+# Create an app at: https://github.com/settings/developers
+#   Homepage URL:      http://localhost:3000
+#   Callback URL:      http://localhost:3000/api/auth/callback/github
 GITHUB_CLIENT_ID="your-github-client-id"
 GITHUB_CLIENT_SECRET="your-github-client-secret"
 
-# Google OAuth (optional — skip this if you do not care about Google login right now).
-# Create credentials at console.cloud.google.com under APIs & Services -> Credentials.
-# Set redirect URI to http://localhost:3000/api/auth/callback/google
+# Google OAuth credentials (optional — skip if you don't need Google login).
+# Create at: https://console.cloud.google.com -> APIs & Services -> Credentials
+#   Authorized redirect URI: http://localhost:3000/api/auth/callback/google
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
 
-# ──────────────────────────────────────────────────────────
-# AI MODEL API KEYS
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
+# AI MODEL KEYS
+# ─────────────────────────────────────────────────
 
-# These are only needed if you want to actually use those AI nodes in a workflow.
-# Leave them empty if you are not using them — the app will not break.
-GOOGLE_GENERATIVE_AI_API_KEY="your-google-ai-api-key"
+# Only needed if you want to run AI nodes in your workflows.
+# Leave blank otherwise — the app won't crash, the AI nodes just won't work.
+GOOGLE_GENERATIVE_AI_API_KEY="your-gemini-api-key"
 ANTHROPIC_API_KEY="your-anthropic-api-key"
 OPENAI_AI_KEY="your-openai-api-key"
 
 
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 # ENCRYPTION
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 
-# A 32-character hex string used to encrypt API keys stored in the credential vault.
-# Without this, the app will crash when you try to save a credential.
-# Generate one: openssl rand -hex 16
-ENCRYPTION_KEY="your-32-char-hex-key"
+# The key used to encrypt API keys stored in the credential vault.
+# Must be exactly 32 hex characters. Generate one:
+#   openssl rand -hex 16
+# WARNING: Losing this key means losing access to all stored credentials.
+ENCRYPTION_KEY="your-32-character-hex-key"
 
 
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 # WEBHOOKS
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 
-# A secret used to verify that incoming webhook requests are legitimate.
-# You can generate this the same way as the encryption key.
+# A secret passed in the Authorization header when validating webhook payloads.
+# Generate with: openssl rand -hex 32
 WEBHOOK_SECRET="your-webhook-secret"
 
 
-# ──────────────────────────────────────────────────────────
-# POLAR — Billing (optional)
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
+# POLAR — Subscriptions (optional)
+# ─────────────────────────────────────────────────
 
-# Skip all of this if you are not working on billing features right now.
+# Skip these entirely if you are not working on billing.
+# The app will treat all users as free-tier if Polar is not configured.
 POLAR_ACCESS_TOKEN="your-polar-access-token"
 POLAR_SUCCESS_URL="http://localhost:3000"
-# Keep this as "sandbox" during development. Switch to "production" only when you deploy.
+# Use "sandbox" locally. Switch to "production" only when you deploy to production.
 POLAR_SERVER="sandbox"
 
 
-# ──────────────────────────────────────────────────────────
-# SENTRY — Error Monitoring (optional)
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
+# SENTRY (optional)
+# ─────────────────────────────────────────────────
 
-# Skip this unless you are testing Sentry integration specifically.
+# Only needed if you are testing Sentry error capture. Safe to leave blank.
 SENTRY_AUTH_TOKEN="your-sentry-auth-token"
 
 
-# ──────────────────────────────────────────────────────────
-# OTHER
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
+# MISCELLANEOUS
+# ─────────────────────────────────────────────────
 
-# The public URL of your app. Used in redirects, emails, and webhook URLs.
+# Public-facing app URL. The NEXT_PUBLIC_ prefix means the browser can read it.
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-# Your ngrok static domain — only needed if you are testing webhook triggers locally.
-# See Step 7 for details.
+# Your ngrok static domain — only needed for local webhook testing (Step 7).
 NGROK_URL="your-subdomain.ngrok-free.dev"
 ```
 
-> **Important:** Do not commit `.env` to Git. It is already in `.gitignore`, so as long as you do not force-add it, you are fine. This is one of those mistakes that is embarrassing to explain to collaborators.
+> **Do not commit `.env` to Git.** It is already in `.gitignore`. This warning exists because one day you will forget, and it will be bad.
 
 ---
 
-### Step 4 — Set Up the Database
+### Step 4 — Database Setup
 
-Run this command to create all the database tables from the Prisma schema:
+Push the Prisma schema to your database. This creates all the tables:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-If this is your first time and there is no migration history yet, use this instead — it is the development-friendly version that also creates the migration files:
+If you are running this for the first time and there is no migration history, use `migrate dev` instead — it creates the migration files as well:
 
 ```bash
 npx prisma migrate dev
 ```
 
-At any point, you can open Prisma Studio to browse and edit your database through a nice UI. It is genuinely useful for debugging:
+To visually browse and edit your database at any point, open Prisma Studio:
 
 ```bash
 npx prisma studio
 ```
 
+It opens a local web UI on port 5555. Genuinely useful for debugging why a workflow isn't showing up or why a node's data looks wrong.
+
 ---
 
-### Step 5 — Start the Development Server
+### Step 5 — Run the Dev Server
 
 ```bash
 npm run dev
 ```
 
-Turbopack is enabled, so the initial compile is fast. Open [http://localhost:3000](http://localhost:3000) and you should see the landing page. If you see an error instead, double-check your `.env` — nine times out of ten it is a missing or malformed environment variable.
+Next.js starts with Turbopack. The initial compile is fast. Open [http://localhost:3000](http://localhost:3000).
+
+If you land on an error page instead of the landing page, check your `.env`. Specifically check `DATABASE_URL` (wrong connection string is the most common culprit) and `ENCRYPTION_KEY` (the app will crash on startup if this is malformed or missing).
 
 ---
 
-### Step 6 — Start the Inngest Dev Server
+### Step 6 — Run the Inngest Dev Server
 
-This step is easy to forget and then wonder why workflow execution is completely broken. Do not skip it.
+This is the step most people forget. Without Inngest running, clicking "Execute" on a workflow will appear to do nothing. Events are sent but no function picks them up.
 
-Open a **second terminal** and run:
+Open a **second terminal** alongside your Next.js dev server:
 
 ```bash
 npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
 ```
 
-This registers your workflow functions with Inngest's local dev server, which runs at [http://localhost:8288](http://localhost:8288). That URL is where you can watch functions execute, inspect event payloads, replay failed runs, and generally understand what is happening inside your workflows in real time.
+This registers the two Inngest functions (`executeWorkflow` and `scheduleRunner`) with the local dev server, which runs at [http://localhost:8288](http://localhost:8288).
 
-You need both terminals running at the same time: one for Next.js, one for Inngest.
+The Inngest Dev Server UI at that URL is where you can:
+- Watch functions execute in real time
+- Inspect the full event payload for any invocation
+- Replay failed function runs without re-triggering the original event
+- See the step-level breakdown of a multi-step function
+
+Keep both terminals running. They need each other.
 
 ---
 
-### Step 7 — Set Up Webhooks with ngrok *(Optional)*
+### Step 7 — Webhook Tunneling with ngrok *(Optional)*
 
-If you want to test webhook triggers — where an external service POSTs to your app and triggers a workflow — your local server needs to be reachable from the internet. That is what ngrok is for.
+If you want to test **webhook-triggered workflows** — where an external service (Stripe, Google Forms, or any HTTP client) sends a POST to your app and fires a workflow — your local server needs a public URL. That is ngrok's job.
 
-1. Install [ngrok](https://ngrok.com/) and log in to your account.
-2. Copy your static domain from the ngrok dashboard and put it in `NGROK_URL` in your `.env`.
-3. In a third terminal (yes, three terminals — welcome to full-stack development), run:
+1. Install [ngrok](https://ngrok.com/) and authenticate your account.
+2. Set `NGROK_URL` in your `.env` to your static ngrok domain (available in your ngrok dashboard).
+3. In a third terminal:
 
 ```bash
 npm run ngrok:dev
 ```
 
-This tunnels `localhost:3000` to `https://your-subdomain.ngrok-free.dev`. Your webhook endpoint will be reachable at `https://your-subdomain.ngrok-free.dev/api/webhooks`.
+Your app is now reachable at `https://your-subdomain.ngrok-free.dev`. Webhook endpoints are at:
+
+```
+https://your-subdomain.ngrok-free.dev/api/webhooks/[workflowId]
+```
+
+Copy the workflowId from the editor URL, paste it into the webhook URL, and you are set. Any service that can send a POST request can now trigger your local workflow.
 
 ---
 
 ## Available Scripts
 
-| Script | Command | What it does |
+| Script | Command | When to use it |
 |---|---|---|
-| Development | `npm run dev` | Starts the dev server with Turbopack. Use this constantly. |
-| Build | `npm run build` | Compiles the production bundle. Run this to check for type errors before deploying. |
-| Start | `npm start` | Starts the compiled production build. Requires `npm run build` first. |
-| Lint | `npm run lint` | Runs Biome across the codebase. Fix what it flags before opening a PR. |
-| Format | `npm run format` | Auto-fixes formatting issues. Run this if Biome is complaining about whitespace. |
-| Webhook Tunnel | `npm run ngrok:dev` | Opens the ngrok tunnel. Only needed when testing webhook triggers. |
+| Development | `npm run dev` | All day, every day. Turbopack + hot reload. |
+| Build | `npm run build` | Before deploying. Also useful to catch type errors that only surface at build time. |
+| Start | `npm start` | Runs the compiled production build. Requires `npm run build` first. |
+| Lint | `npm run lint` | Before committing. Biome checks formatting and code quality simultaneously. |
+| Format | `npm run format` | Auto-fixes formatting issues in place. Run this if lint is yelling about whitespace. |
+| Webhook Tunnel | `npm run ngrok:dev` | When testing webhook-triggered workflows locally. |
+
+---
+
+## Architecture Overview
+
+This is the big picture of how the different parts connect:
+
+```
+Browser
+  |
+  +-- tRPC client (src/trpc/client.tsx)
+  |     |
+  |     +-- HTTP POST /api/trpc/*
+  |           |
+  |           +-- tRPC server (src/trpc/init.ts)
+  |                 |
+  |                 +-- baseProcedure        (public)
+  |                 +-- protectedProcedure   (requires Better Auth session)
+  |                 +-- premiumProcedure     (requires active Polar subscription)
+  |                 |
+  |                 +-- workflowsRouter      (CRUD, execute, demos)
+  |                 +-- credentialsRouter    (encrypted key management)
+  |                 +-- executionsRouter     (run history and logs)
+  |
+  +-- Better Auth client (src/lib/auth-client.ts)
+        |
+        +-- HTTP /api/auth/*  (login, logout, OAuth callbacks)
+
+Workflow Execution
+  |
+  +-- tRPC mutation: workflows.execute
+  |     |
+  |     +-- inngest.send("workflows/execute.workflow")
+  |           |
+  |           +-- Inngest Dev Server / Cloud
+  |                 |
+  |                 +-- executeWorkflow function (src/inngest/functions.ts)
+  |                       |
+  |                       +-- topologicalSort(nodes, connections)
+  |                       +-- while(currentNode) {
+  |                       |     executor = executorRegistry[node.type]
+  |                       |     context = await executor({data, context, step, publish})
+  |                       |     -- CONDITION: follow __branch handle
+  |                       |     -- DEFAULT:   follow next connection
+  |                       |   }
+  |                       +-- update Execution: SUCCESS / FAILED
+  |
+  +-- Inngest Realtime channels (one per node type)
+        |
+        +-- publish() called from each executor
+        +-- browser subscribes via @inngest/realtime
+        +-- live status updates without polling
+
+Schedule Trigger
+  |
+  +-- scheduleRunner (src/inngest/schedule-runner.ts)
+        |
+        +-- Persistent Inngest function, started when schedule node is enabled
+        +-- while(true) {
+        |     nextDate = cronParser.parse(cron).next()
+        |     await step.sleepUntil(nextDate)        // durable sleep
+        |     inngest.send("workflows/execute.workflow")
+        |   }
+        +-- Stops if schedule node is disabled on next iteration
+
+Webhook Trigger
+  |
+  +-- External service POSTs to /api/webhooks/[workflowId]
+        |
+        +-- Validates WEBHOOK_SECRET
+        +-- Calls sendWorkflowExecution({ workflowId, initialData: req.body })
+        +-- Workflow fires with webhook body available in context
+```
 
 ---
 
 ## Project Structure
 
-The project follows Next.js App Router conventions with some additional organization for features and business logic. Here is the full map:
-
 ```
 weave/
 |
 +-- prisma/
-|   +-- schema.prisma              # Every database model lives here. This is the source of truth.
-|   +-- migrations/                # Auto-generated SQL. Do not edit these by hand.
+|   +-- schema.prisma              # Source of truth for all database models.
+|   +-- migrations/                # SQL migration history. Auto-generated by Prisma.
 |
-+-- public/                        # Static files served at the root URL (images, icons).
++-- public/                        # Static assets served at the root URL.
 |
 +-- src/
 |   |
-|   +-- app/                       # Next.js App Router. Every folder here is a route or a route group.
+|   +-- app/                       # Next.js App Router. Folder = route.
 |   |   |
-|   |   +-- (auth)/                # Route group for auth pages. Has its own minimal layout — no sidebar.
+|   |   +-- (auth)/                # Route group: no sidebar, minimal layout.
 |   |   |   +-- login/             # /login
 |   |   |   +-- signup/            # /signup
-|   |   |   +-- layout.tsx         # Bare layout for auth screens
 |   |   |
-|   |   +-- (dashboard)/           # Route group for authenticated app pages. Has the sidebar layout.
+|   |   +-- (dashboard)/           # Route group: authenticated, sidebar layout.
+|   |   |   +-- (rest)/            # Standard dashboard pages.
+|   |   |   |   +-- workflows/     # /workflows — workflow list with search + pagination
+|   |   |   |   +-- executions/    # /executions — full execution history
+|   |   |   |   +-- credentials/   # /credentials — encrypted API key vault
 |   |   |   |
-|   |   |   +-- (rest)/            # Standard dashboard pages with the sidebar visible.
-|   |   |   |   +-- workflows/     # /workflows — the list of all workflows belonging to the user
-|   |   |   |   +-- executions/    # /executions — history of every workflow run
-|   |   |   |   +-- credentials/   # /credentials — where users manage their stored API keys
-|   |   |   |   +-- layout.tsx     # Wraps these pages with the sidebar and header
-|   |   |   |
-|   |   |   +-- (editor)/          # Full-screen editor layout. No sidebar — the canvas needs all the space.
-|   |   |       +-- workflows/     # /workflows/[id] — the actual visual workflow editor
+|   |   |   +-- (editor)/          # Full-screen canvas layout. No sidebar.
+|   |   |       +-- workflows/     # /workflows/[id] — the visual workflow editor
 |   |   |
-|   |   +-- api/                   # API routes. These are all server-side.
-|   |   |   +-- auth/              # Better Auth catches all /api/auth/* requests here
-|   |   |   +-- inngest/           # The endpoint Inngest calls to discover and invoke functions
-|   |   |   +-- trpc/              # The HTTP handler that serves all tRPC procedures
-|   |   |   +-- webhooks/          # Incoming webhook endpoint — external services POST here to trigger workflows
-|   |   |   +-- schedule/          # Called by a cron job to fire schedule-triggered workflows
+|   |   +-- api/
+|   |   |   +-- auth/              # Better Auth catches all /api/auth/* here.
+|   |   |   +-- inngest/           # Inngest function registration endpoint.
+|   |   |   +-- trpc/              # tRPC HTTP handler.
+|   |   |   +-- webhooks/
+|   |   |   |   +-- [workflowId]/  # Unique per-workflow webhook endpoint.
+|   |   |   |   +-- google-form/   # Google Form submission handler.
+|   |   |   |   +-- stripe/        # Stripe event handler.
+|   |   |   +-- schedule/          # Called to start/stop schedule runners.
 |   |   |
-|   |   +-- docs/                  # Documentation page
-|   |   +-- payment-success/       # The page users land on after a successful Polar.sh checkout
-|   |   +-- layout.tsx             # Root layout — sets up fonts, theme providers, Sentry
-|   |   +-- page.tsx               # The landing page. It is long and has a lot of sections.
-|   |   +-- globals.css            # Global styles and Tailwind base layer
+|   |   +-- docs/                  # Documentation page.
+|   |   +-- payment-success/       # Post-Polar checkout landing page.
+|   |   +-- layout.tsx             # Root layout: fonts, providers, Sentry init.
+|   |   +-- page.tsx               # Landing / marketing page.
+|   |   +-- globals.css            # Global styles + Tailwind base layer.
 |   |
-|   +-- components/                # React components. If it renders something, it lives here.
-|   |   +-- ui/                    # shadcn/ui primitives — Button, Dialog, Input, Select, etc.
-|   |   +-- landing_page/          # Every section and animated element on the marketing page
-|   |   +-- react-flow/            # Custom node and edge renderers for the React Flow canvas
-|   |   +-- app-sidebar.tsx        # The main navigation sidebar
-|   |   +-- app-header.tsx         # The top bar inside the dashboard
-|   |   +-- node-dialog.tsx        # The modal that opens when you configure a node's settings
-|   |   +-- node-selector.tsx      # The panel for picking and adding new nodes to the canvas
-|   |   +-- workflow-node.tsx      # The individual node card rendered on the canvas
-|   |   +-- upgrade-modal.tsx      # The paywall modal that appears when a free user hits a plan limit
+|   +-- components/
+|   |   +-- ui/                    # shadcn/ui base components.
+|   |   +-- landing_page/          # Every section, animation, and element on the marketing page.
+|   |   +-- react-flow/            # Custom React Flow node/edge renderers.
+|   |   +-- app-sidebar.tsx        # Main navigation sidebar.
+|   |   +-- app-header.tsx         # Top bar.
+|   |   +-- node-dialog.tsx        # Modal for configuring node settings.
+|   |   +-- node-selector.tsx      # Node picker panel in the editor.
+|   |   +-- workflow-node.tsx      # Individual node card on the canvas.
+|   |   +-- upgrade-modal.tsx      # Paywall modal shown when free limits are hit.
 |   |
-|   +-- features/                  # Business logic organized by domain. This is where the real work happens.
-|   |   +-- auth/                  # Auth helpers, session utilities, and server-side user resolution
-|   |   +-- workflows/             # Workflow CRUD operations, graph traversal, and execution orchestration
-|   |   +-- editor/                # Editor state and canvas interaction logic
-|   |   +-- executions/            # Fetching, displaying, and formatting execution run data
-|   |   +-- credentials/           # Saving, retrieving, and decrypting user credentials
-|   |   +-- subscriptions/         # Checking a user's current plan and enforcing limits
-|   |   +-- triggers/              # Logic for handling different trigger types when they fire
+|   +-- features/                  # Domain-level code, organized by feature.
+|   |   |
+|   |   +-- workflows/
+|   |   |   +-- server/
+|   |   |   |   +-- routers.ts     # The workflows tRPC router.
+|   |   |   |                      # Contains: create, remove, update, getOne, getMany,
+|   |   |   |                      #           execute, deployDemo, attachDemoCredentials.
+|   |   |   +-- components/        # Workflow list cards, create button, etc.
+|   |   |   +-- hooks/             # Client hooks for workflow data.
+|   |   |
+|   |   +-- executions/
+|   |   |   +-- lib/
+|   |   |   |   +-- executor-registry.ts   # Maps NodeType -> executor function.
+|   |   |   |                              # This is where new node types get registered.
+|   |   |   +-- components/               # One folder per node type, each containing:
+|   |   |   |   +-- [node-type]/          #   node.tsx     — React Flow canvas component
+|   |   |   |   |   +-- node.tsx          #   executor.ts  — server-side execution logic
+|   |   |   |   |   +-- executor.ts       #   dialog.tsx   — configuration form
+|   |   |   +-- server/
+|   |   |       +-- routers.ts            # Executions tRPC router (list, get, pagination).
+|   |   |
+|   |   +-- triggers/
+|   |   |   +-- components/               # Same structure as executions/components.
+|   |   |       +-- [trigger-type]/       # node.tsx + executor.ts per trigger.
+|   |   |
+|   |   +-- credentials/
+|   |   |   +-- server/
+|   |   |       +-- routers.ts            # Credentials tRPC router (create, delete, list).
+|   |   |                                 # Encrypts via lib/encryption.ts before saving.
+|   |   +-- auth/                         # Auth utilities, session access helpers.
+|   |   +-- editor/                       # Canvas state, save logic, node panel interactions.
+|   |   +-- subscriptions/                # Plan check utilities (reads Polar customer state).
 |   |
-|   +-- inngest/                   # Everything related to Inngest background jobs.
-|   |   +-- client.ts              # The Inngest client instance. Imported wherever you need to send events.
-|   |   +-- functions.ts           # The main workflow execution function — this is the core runner.
-|   |   +-- schedule-runner.ts     # The function that handles scheduled workflow triggers.
-|   |   +-- channels/              # Inngest Realtime channels for pushing live status updates to the UI
-|   |   +-- utils.ts               # Helpers for executing individual node types
+|   +-- inngest/
+|   |   +-- client.ts              # Inngest client singleton.
+|   |   +-- functions.ts           # executeWorkflow — the core execution engine.
+|   |   +-- schedule-runner.ts     # scheduleRunner — long-running schedule loop.
+|   |   +-- channels/              # One Inngest Realtime channel definition per node type.
+|   |   |   +-- [node-type].ts     # e.g., gemini.ts, discord.ts, condition.ts
+|   |   +-- utils.ts               # topologicalSort() and sendWorkflowExecution().
 |   |
-|   +-- trpc/                      # The entire tRPC setup.
+|   +-- trpc/
 |   |   +-- routers/
-|   |   |   +-- _app.ts            # The root router. All sub-routers are merged here.
-|   |   +-- init.ts                # tRPC context creation and base procedure definitions
-|   |   +-- server.tsx             # Server-side caller for use in Server Components and route handlers
-|   |   +-- client.tsx             # Client-side provider and hooks — wrap this around your pages
-|   |   +-- query-client.ts        # TanStack Query client configuration shared between server and client
+|   |   |   +-- _app.ts            # Root router. Merges workflows, credentials, executions.
+|   |   +-- init.ts                # Context, baseProcedure, protectedProcedure, premiumProcedure.
+|   |   +-- server.tsx             # Server-side tRPC caller (for Server Components).
+|   |   +-- client.tsx             # Client-side tRPC provider + hooks.
+|   |   +-- query-client.ts        # TanStack Query config shared between server and client.
 |   |
-|   +-- lib/                       # Singleton instances and shared utilities. Import from here, not elsewhere.
-|   |   +-- auth.ts                # Better Auth server config — OAuth providers, session settings, etc.
-|   |   +-- auth-client.ts         # The Better Auth client used in browser contexts
-|   |   +-- auth-utils.ts          # Helper functions like getCurrentUser() for server components
-|   |   +-- db.ts                  # The Prisma client singleton. One instance per server process.
-|   |   +-- encryption.ts          # Wraps Cryptr to encrypt and decrypt credential values
-|   |   +-- checkout.ts            # Helpers for creating Polar.sh checkout sessions
-|   |   +-- polar.ts               # The Polar.sh client instance
-|   |   +-- utils.ts               # General utilities — cn() for class merging, etc.
+|   +-- lib/
+|   |   +-- auth.ts                # Better Auth config: GitHub, Google, email/password, Polar plugin.
+|   |   +-- auth-client.ts         # Better Auth browser client.
+|   |   +-- auth-utils.ts          # getCurrentUser() and similar server-side helpers.
+|   |   +-- db.ts                  # Prisma client singleton. Import from here, not from @prisma/client.
+|   |   +-- encryption.ts          # encrypt() and decrypt() wrappers around Cryptr.
+|   |   +-- checkout.ts            # Polar checkout session helpers.
+|   |   +-- polar.ts               # Polar client singleton.
+|   |   +-- utils.ts               # cn() for class merging and other small utilities.
 |   |
-|   +-- config/                    # App-wide configuration that does not belong anywhere else.
-|   |   +-- constants.ts           # Plan limits, feature flags, and other app-level constants
-|   |   +-- node-components.ts     # A registry that maps each NodeType to its React component
-|   |
-|   +-- hooks/                     # Custom React hooks shared across components
-|   +-- generated/                 # Auto-generated code. Do not touch this manually.
-|   +-- instrumentation.ts         # Next.js instrumentation hook — initializes Sentry on the server
-|   +-- instrumentation-client.ts  # Initializes Sentry in the browser
+|   +-- config/
+|   |   +-- constants.ts           # PAGINATION config and other app-wide constants.
+|   |   +-- node-components.ts     # Registry: NodeType enum -> React component.
+|   |                              # This is what React Flow uses to render the canvas.
+|   +-- hooks/                     # Shared custom React hooks.
+|   +-- generated/                 # Auto-generated output. Do not touch manually.
+|   +-- instrumentation.ts         # Sentry server/edge initialization (Next.js hook).
+|   +-- instrumentation-client.ts  # Sentry browser initialization.
 |
-+-- .env                           # Your secrets. DO NOT COMMIT THIS FILE.
-+-- .gitignore                     # What Git should ignore. Your .env is already in here.
-+-- biome.json                     # Biome linter and formatter config
-+-- components.json                # shadcn/ui configuration — tells the CLI where to put new components
-+-- next.config.ts                 # Next.js config, wrapped with the Sentry plugin
-+-- postcss.config.mjs             # PostCSS config for Tailwind CSS v4
-+-- tsconfig.json                  # TypeScript options. Strict mode is on.
-+-- package.json                   # Dependencies and scripts
++-- .env                           # Your secrets. Do not commit this.
++-- .gitignore
++-- biome.json                     # Biome linter + formatter config.
++-- components.json                # shadcn/ui config (component paths, style, etc.)
++-- next.config.ts                 # Next.js config, wrapped with Sentry plugin.
++-- postcss.config.mjs             # PostCSS for Tailwind v4.
++-- tsconfig.json                  # TypeScript config. Strict mode is on.
++-- package.json
 ```
 
 ---
 
-## Node Types
+## Node Reference
 
-There are 15 built-in node types split into three categories. Every workflow must start with exactly one trigger. The rest is up to you.
+Every workflow starts with one trigger node. Everything after that is an action or logic node. Data flows between nodes via a shared `context` object. Each node writes its output into the context under a `variableName` key, and downstream nodes can reference it with `{{variableName.field}}`.
 
-### Trigger Nodes — These start the workflow
+### Trigger Nodes
 
-| Node Type | What triggers it |
-|---|---|
-| `MANUAL_TRIGGER` | You click run from the dashboard. Good for testing. |
-| `WEBHOOK_TRIGGER` | An HTTP POST arrives at the workflow's unique webhook URL. |
-| `GOOGLE_FORM_TRIGGER` | A new response is submitted to a connected Google Form. |
-| `STRIPE_TRIGGER` | A Stripe event fires (payment succeeded, subscription created, etc.). |
-| `SCHEDULE_TRIGGER` | A cron expression matches the current time and the workflow runs automatically. |
+| Node | Type Enum | What triggers it |
+|---|---|---|
+| Manual Trigger | `MANUAL_TRIGGER` | Clicking "Execute" in the dashboard or editor. |
+| Webhook Trigger | `WEBHOOK_TRIGGER` | An HTTP POST to `/api/webhooks/[workflowId]`. The request body lands in context as `webhook.body`. |
+| Google Form Trigger | `GOOGLE_FORM_TRIGGER` | A new submission sent to `/api/webhooks/google-form`. |
+| Stripe Trigger | `STRIPE_TRIGGER` | A Stripe webhook event sent to `/api/webhooks/stripe`. |
+| Schedule Trigger | `SCHEDULE_TRIGGER` | A cron expression fires. Uses `cron-parser` to calculate next run time. Requires enabling and setting a cron expression in the node config. |
 
-### Action Nodes — These do the actual work
+### Action Nodes
 
-| Node Type | What it does |
-|---|---|
-| `HTTP_REQUEST` | Makes an HTTP GET, POST, PUT, or DELETE call to any URL. Output is the response body. |
-| `OPENAI` | Sends a prompt to an OpenAI model. The response becomes the node's output. |
-| `ANTHROPIC` | Same as above, but for Claude. |
-| `GEMINI` | Same as above, but for Google Gemini. |
-| `DISCORD` | Sends a message to a Discord channel via a bot token or webhook URL. |
-| `SLACK` | Sends a message to a Slack channel. |
-| `TELEGRAM` | Sends a message via a Telegram bot. |
+| Node | Type Enum | What it does |
+|---|---|---|
+| HTTP Request | `HTTP_REQUEST` | Makes an HTTP GET, POST, PUT, or DELETE to any URL. Response body is written to context. |
+| OpenAI | `OPENAI` | Sends a prompt to an OpenAI model. Response text written to `context[variableName].text`. |
+| Anthropic | `ANTHROPIC` | Same as OpenAI but using the Claude API. |
+| Gemini | `GEMINI` | Same but using Google Gemini. Default model is `gemini-2.5-flash-lite`. |
+| Discord | `DISCORD` | Sends a message to a Discord channel via a webhook URL stored in the credential vault. |
+| Slack | `SLACK` | Sends a message to a Slack channel via a webhook URL. |
+| Telegram | `TELEGRAM` | Sends a message via a Telegram bot token. |
 
-### Logic and Utility Nodes — These control the flow
+### Logic and Utility Nodes
 
-| Node Type | What it does |
-|---|---|
-| `CONDITION` | Evaluates an expression. Routes execution down one of two branches based on the result. |
-| `JSON_TRANSFORM` | Takes the incoming data and reshapes it into a new structure. Useful between nodes that speak different formats. |
-| `DELAY` | Pauses the workflow for a specified duration before the next node runs. |
+| Node | Type Enum | What it does |
+|---|---|---|
+| Condition | `CONDITION` | Evaluates one or more rules (left / operator / right) against the current context. Outputs `true` or `false` on named handles. The execution engine reads the `__branch` field to route to the correct next node. Supports AND and OR combinators. |
+| JSON Transform | `JSON_TRANSFORM` | Reshapes the context data using a mapping configuration. Useful when one node outputs a format that does not match what the next node expects. |
+| Delay | `DELAY` | Pauses execution for a specified duration. Implemented via Inngest's `step.sleep()`, so the delay is durable and does not block a thread. |
 
 ---
 
-## Database Schema Overview
+## Database Schema
 
-Here is how the data is structured. Understanding this makes the codebase considerably less confusing.
+The full schema is in `prisma/schema.prisma`. Here is a readable summary of the relationships and what each model represents:
 
 ```
 User
- |-- has many --> Workflow
- |-- has many --> Session        (created and managed by Better Auth on login)
- |-- has many --> Account        (one entry per OAuth provider linked to the account)
- +-- has many --> Credential     (encrypted API keys that belong to this user)
+  id, name, email, image, emailVerified
+  |
+  +-- has many --> Session       (Better Auth sessions — one per active login)
+  +-- has many --> Account       (OAuth accounts — one per linked provider)
+  +-- has many --> Credential    (user's stored API keys, AES-encrypted)
+  +-- has many --> Workflow
 
 Workflow
- |-- has many --> Node           (each box on the canvas is a node)
- |-- has many --> Connection     (each arrow between nodes is a connection)
- +-- has many --> Execution      (one entry per run, with status and output)
+  id, name, userId, createdAt, updatedAt
+  |
+  +-- has many --> Node          (canvas elements — each has type, position, data JSON)
+  +-- has many --> Connection    (edges between nodes — fromNodeId + fromOutput -> toNodeId + toInput)
+  +-- has many --> Execution     (one record per run)
 
 Node
- |-- belongs to     --> Workflow
- |-- optionally     --> Credential    (e.g., an OpenAI node references a stored API key)
- |-- has many       --> Connection    (as the source — connections going out from this node)
- +-- has many       --> Connection    (as the destination — connections coming into this node)
+  id, workflowId, name, type (NodeType enum), position (JSON), data (JSON)
+  |
+  +-- optionally belongs to --> Credential   (e.g., a Gemini node references a stored API key)
+  +-- has many --> Connection (as source)    (connections going OUT from this node)
+  +-- has many --> Connection (as target)    (connections coming INTO this node)
 
 Connection
- |-- belongs to --> Workflow
- |-- from       --> Node + output handle name    (default handle name is "main")
- +-- to         --> Node + input handle name     (default handle name is "main")
+  id, workflowId
+  fromNodeId + fromOutput  -->  toNodeId + toInput
+  (fromOutput and toInput are handle names — "main" by default, "true"/"false" for Condition)
+  Unique constraint: (fromNodeId, toNodeId, fromOutput, toInput)
 
 Execution
- |-- belongs to --> Workflow
- +-- tracks: status (RUNNING / SUCCESS / FAILED), output JSON, error message,
-             start time, completion time, and the Inngest event ID for tracing
-```
+  id, workflowId, status (RUNNING | SUCCESS | FAILED)
+  startedAt, completedAt, output (JSON), error (Text), errorStack (Text)
+  inngestEventId (unique — used to look up this run in the Inngest dashboard)
 
-A couple of things worth noting: connections track named handles, which is how the Condition node routes to different branches. The `inngestEventId` on Execution is what you use to look up a run in the Inngest Dev Server.
+Credential
+  id, name, type (CredentialType enum), value (encrypted string), userId
+  CredentialType: OPENAI | ANTHROPIC | GEMINI | TELEGRAM | DISCORD | SLACK
+```
 
 ---
 
-## Environment Variables Reference
+## API Layer
 
-A quick reference for every variable the app reads. If a variable is marked required and it is missing, the app will crash or behave incorrectly.
+Weave uses tRPC for all client-server communication. Here is a summary of every available procedure:
+
+**`workflows` router**
+
+| Procedure | Type | Auth | Description |
+|---|---|---|---|
+| `workflows.create` | mutation | protected | Creates a new workflow with an initial node. Enforces 5-workflow limit for free users via a Prisma transaction. |
+| `workflows.remove` | mutation | protected | Deletes a workflow and cascades to all nodes, connections, and executions. |
+| `workflows.update` | mutation | protected | Saves the canvas state — rebuilds all nodes and connections in a single transaction (timeout: 20s). |
+| `workflows.updateName` | mutation | protected | Renames a workflow. Blocks names starting with `__demo__`. |
+| `workflows.getOne` | query | protected | Fetches a workflow with nodes and connections, transformed into React Flow format. |
+| `workflows.getMany` | query | protected | Paginated list with search. Excludes `__demo__` prefixed workflows from results. |
+| `workflows.execute` | mutation | protected | Sends `workflows/execute.workflow` event to Inngest. |
+| `workflows.getUsage` | query | protected | Returns current workflow count and the limit (5 for free users). |
+| `workflows.deployDemo` | mutation | protected | Creates a pre-built demo workflow (`summarizer` or `triage`) with all nodes and connections wired up. Idempotent. |
+| `workflows.attachDemoCredentials` | mutation | protected | Encrypts and attaches provided API keys to the correct nodes in a demo workflow. |
+
+**`credentials` router**
+
+| Procedure | Type | Auth | Description |
+|---|---|---|---|
+| `credentials.create` | mutation | protected | Encrypts the credential value and stores it. |
+| `credentials.remove` | mutation | protected | Deletes a credential. |
+| `credentials.getMany` | query | protected | Lists all credentials for the current user (values not returned — only metadata). |
+
+**`executions` router**
+
+| Procedure | Type | Auth | Description |
+|---|---|---|---|
+| `executions.getMany` | query | protected | Paginated execution history with optional workflowId filter. |
+| `executions.getOne` | query | protected | Single execution with full output, error, and timing. |
+
+---
+
+## Plans and Limits
+
+Weave ships with two tiers. The limits are enforced on the server — not just in the UI.
+
+| Limit | Free | Pro |
+|---|---|---|
+| Workflows | 5 | Unlimited |
+| Executions | Unlimited | Unlimited |
+| Credentials | Unlimited | Unlimited |
+| AI Nodes | Available (bring your own key) | Available |
+| Schedule Triggers | Available | Available |
+
+Plan status is checked via Polar.sh. The `checkUserPremium` helper in the workflows router calls `polarClient.customers.getStateExternal({ externalId: userId })` and checks for active subscriptions. If Polar is not configured (no `POLAR_ACCESS_TOKEN`), all premium checks will fall through and treat users as free-tier.
+
+---
+
+## Environment Variable Reference
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `BETTER_AUTH_SECRET` | Yes | Random secret for signing auth tokens |
+| `DATABASE_URL` | Yes | PostgreSQL connection string from Neon (or any Postgres provider) |
+| `BETTER_AUTH_SECRET` | Yes | Random secret for signing session tokens — generate with `openssl rand -hex 32` |
 | `BETTER_AUTH_URL` | Yes | Base URL of the app (e.g. `http://localhost:3000`) |
 | `GITHUB_CLIENT_ID` | Yes | GitHub OAuth App client ID |
 | `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth App client secret |
-| `ENCRYPTION_KEY` | Yes | 32-character hex key for encrypting stored credentials |
+| `ENCRYPTION_KEY` | Yes | 32-char hex key for encrypting stored credentials — generate with `openssl rand -hex 16` |
 | `WEBHOOK_SECRET` | Yes | Secret for validating incoming webhook requests |
-| `NEXT_PUBLIC_APP_URL` | Yes | Public-facing app URL — prefixed with `NEXT_PUBLIC_` so the browser can read it |
+| `NEXT_PUBLIC_APP_URL` | Yes | Public app URL — `NEXT_PUBLIC_` prefix exposes it to the browser |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | No | Google AI / Gemini API key |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | No | Google Gemini API key (for the platform-level Gemini node executor) |
 | `ANTHROPIC_API_KEY` | No | Anthropic Claude API key |
 | `OPENAI_AI_KEY` | No | OpenAI API key |
-| `POLAR_ACCESS_TOKEN` | No | Polar.sh API token for billing |
-| `POLAR_SUCCESS_URL` | No | Where users land after a successful checkout |
-| `POLAR_SERVER` | No | `sandbox` for local dev, `production` for live |
-| `SENTRY_AUTH_TOKEN` | No | Sentry token for uploading source maps during build |
-| `NGROK_URL` | No | Your ngrok static domain for local webhook testing |
+| `POLAR_ACCESS_TOKEN` | No | Polar.sh API token for subscription checks and checkout sessions |
+| `POLAR_SUCCESS_URL` | No | Redirect URL after successful Polar checkout |
+| `POLAR_SERVER` | No | `sandbox` for local/staging, `production` for live |
+| `SENTRY_AUTH_TOKEN` | No | Sentry token for source map uploads at build time |
+| `NGROK_URL` | No | ngrok static domain for webhook tunneling during local dev |
 
 ---
 
 ## Contributing
 
-The project is set up to make contributing reasonably painless. Follow this flow:
+The codebase is structured so that adding a new node type follows a predictable pattern. Here is the general process to give you an idea of how things fit together:
 
-1. Fork the repository and clone your fork locally.
+1. Add the new type to the `NodeType` enum in `prisma/schema.prisma` and run `npx prisma migrate dev`.
+2. Create a new folder under `src/features/executions/components/[your-node]/` with:
+   - `node.tsx` — the React Flow canvas card
+   - `executor.ts` — the server-side execution function (matches the `NodeExecutor` type)
+   - `dialog.tsx` — the configuration form that opens in the node settings modal
+3. Register the executor in `src/features/executions/lib/executor-registry.ts`.
+4. Register the React component in `src/config/node-components.ts`.
+5. Add an Inngest Realtime channel in `src/inngest/channels/[your-node].ts` and register it in `src/inngest/functions.ts`.
 
-2. Create a branch with a name that actually describes what you are doing:
+**For other contributions:**
+
+1. Fork the repository.
+2. Create a descriptive branch:
    ```bash
-   git checkout -b feature/add-notion-node
+   git checkout -b feat/your-feature-name
    ```
-
-3. Make your changes. Write clean code. Add comments where the logic is non-obvious.
-
-4. Run the linter before committing. This is not optional:
+3. Make your changes and run Biome before committing:
    ```bash
    npm run lint
    ```
-   If it fails, fix the issues. Do not open a PR with lint errors — it will be sent back.
-
-5. Commit with a message that a future developer (possibly yourself at 2am) will understand:
+4. Commit with a clear message:
    ```bash
-   git commit -m "feat: add Notion node for creating database entries"
+   git commit -m "feat: describe what you added and why"
    ```
-
-6. Push and open a Pull Request against `main`. Describe what you changed and why.
-
----
-
-## License
-
-This project is private and proprietary. All rights reserved. (c) 2026 Weave.
+5. Push and open a Pull Request against `main`.
 
 ---
 
 <div align="center">
-Built with Next.js, Prisma, Inngest, and tRPC.
+
+Built with Next.js, Prisma, Inngest, tRPC, and too much coffee.
+
+(c) 2026 Weave. All rights reserved.
+
 </div>
